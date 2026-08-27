@@ -11,6 +11,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from .config.settings import EnvironmentOption, Settings, get_settings
 from .database.session import create_tables
+from .http import register_exception_handlers
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -83,6 +84,7 @@ def create_application(
         lifespan = lifespan_factory(settings, create_tables_on_startup=settings.CREATE_TABLES_ON_STARTUP)
 
     application = FastAPI(lifespan=lifespan, **metadata)
+    register_exception_handlers(application)
     application.include_router(router)
 
     if settings.CORS_ENABLED:
