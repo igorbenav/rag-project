@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from ..infrastructure.app_factory import create_application
 from ..infrastructure.config.settings import get_settings
 from ..modules import registry  # noqa: F401  (registers models on Base.metadata)
+from .api import router as api_router
 
 settings = get_settings()
 
@@ -22,3 +23,4 @@ async def health() -> dict[str, str]:
 
 
 app = create_application(router=router, settings=settings)
+app.include_router(api_router)
