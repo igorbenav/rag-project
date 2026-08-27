@@ -35,9 +35,9 @@ _TITLES: dict[int, tuple[str, str]] = {
     status.HTTP_406_NOT_ACCEPTABLE: ("not-acceptable", "Not acceptable"),
     status.HTTP_409_CONFLICT: ("conflict", "Conflict"),
     status.HTTP_412_PRECONDITION_FAILED: ("precondition-failed", "Precondition failed"),
-    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: ("content-too-large", "Content too large"),
+    status.HTTP_413_CONTENT_TOO_LARGE: ("content-too-large", "Content too large"),
     status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: ("unsupported-media-type", "Unsupported media type"),
-    status.HTTP_422_UNPROCESSABLE_ENTITY: ("validation-failed", "Validation failed"),
+    status.HTTP_422_UNPROCESSABLE_CONTENT: ("validation-failed", "Validation failed"),
     status.HTTP_429_TOO_MANY_REQUESTS: ("rate-limited", "Too many requests"),
     status.HTTP_500_INTERNAL_SERVER_ERROR: ("internal-error", "Internal server error"),
 }
@@ -127,7 +127,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         errors = [{"field": ".".join(str(part) for part in error["loc"]), "message": error["msg"]} for error in exc.errors()]
         return problem_response(
             request,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="The request body failed validation.",
             errors=errors,
         )
@@ -142,7 +142,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ValidationError)
     async def _domain_validation(request: Request, exc: ValidationError) -> JSONResponse:
-        return problem_response(request, status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc) or None)
+        return problem_response(request, status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc) or None)
 
     @app.exception_handler(DomainError)
     async def _domain(request: Request, exc: DomainError) -> JSONResponse:
