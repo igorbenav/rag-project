@@ -82,6 +82,23 @@ class AppSettings(BaseSettings):
     DEBUG: bool = config("DEBUG", default=False, cast=bool)
 
 
+class MistralSettings(BaseSettings):
+    MISTRAL_API_KEY: str = config("MISTRAL_API_KEY", default="")
+    MISTRAL_EMBED_MODEL: str = config("MISTRAL_EMBED_MODEL", default="mistral-embed")
+    MISTRAL_CHAT_MODEL: str = config("MISTRAL_CHAT_MODEL", default="mistral-small-latest")
+
+    # mistral-embed returns 1024 dimensions. Every index is built to this, so
+    # changing it invalidates stored embeddings.
+    EMBEDDING_DIM: int = config("EMBEDDING_DIM", default=1024, cast=int)
+
+    # Texts per embeddings request. Mistral caps request size, not batch count,
+    # so this is a throughput knob rather than a hard API limit.
+    EMBEDDING_BATCH_SIZE: int = config("EMBEDDING_BATCH_SIZE", default=64, cast=int)
+
+    MISTRAL_TIMEOUT_MS: int = config("MISTRAL_TIMEOUT_MS", default=60000, cast=int)
+    MISTRAL_MAX_RETRY_ELAPSED_MS: int = config("MISTRAL_MAX_RETRY_ELAPSED_MS", default=30000, cast=int)
+
+
 class LoggingSettings(BaseSettings):
     LOG_LEVEL: str = config("LOG_LEVEL", default="INFO")
     LOG_FORMAT: str = config("LOG_FORMAT", default="structured")
@@ -112,6 +129,7 @@ class Settings(
     CORSSettings,
     APISettings,
     AppSettings,
+    MistralSettings,
     LoggingSettings,
 ):
     """Every setting the application reads, in one object."""

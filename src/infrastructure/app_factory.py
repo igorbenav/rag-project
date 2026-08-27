@@ -13,6 +13,7 @@ from .config.settings import EnvironmentOption, Settings, get_settings
 from .database.session import create_tables
 from .http import register_exception_handlers
 from .logging import get_logger
+from .mistral.client import close_client
 
 logger = get_logger(__name__)
 
@@ -43,7 +44,10 @@ def lifespan_factory(
             await create_tables()
             logger.info("Database tables ensured")
 
-        yield
+        try:
+            yield
+        finally:
+            await close_client()
 
     return lifespan
 

@@ -12,6 +12,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "greenlet>=3.2.4",
     "fastcrud>=0.22.3",
+    "mistralai>=2.9.4",
 ]
 
 [project.optional-dependencies]
