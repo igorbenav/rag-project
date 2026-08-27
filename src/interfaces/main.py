@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from ..infrastructure.app_factory import create_application
 from ..infrastructure.config.settings import get_settings
+from ..modules import registry  # noqa: F401  (registers models on Base.metadata)
 
 settings = get_settings()
 

@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.infrastructure.database.session import create_tables  # noqa: E402
+from src.modules import registry  # noqa: E402,F401  (registers models on Base.metadata)
 
 logger = logging.getLogger(__name__)
 

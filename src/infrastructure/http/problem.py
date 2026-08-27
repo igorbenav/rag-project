@@ -25,8 +25,7 @@ logger = get_logger(__name__)
 CONTENT_TYPE = "application/problem+json"
 PROBLEM_TYPE_PREFIX = "/problems"
 
-# Deliberate status codes, mapped to a stable type slug and title.
-# Anything unlisted falls back to a generic problem.
+# Add a status code here or problem_response falls back to a generic problem.
 _TITLES: dict[int, tuple[str, str]] = {
     status.HTTP_400_BAD_REQUEST: ("bad-request", "Bad request"),
     status.HTTP_401_UNAUTHORIZED: ("unauthorized", "Unauthorized"),
@@ -125,10 +124,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
-        errors = [
-            {"field": ".".join(str(part) for part in error["loc"]), "message": error["msg"]}
-            for error in exc.errors()
-        ]
+        errors = [{"field": ".".join(str(part) for part in error["loc"]), "message": error["msg"]} for error in exc.errors()]
         return problem_response(
             request,
             status.HTTP_422_UNPROCESSABLE_ENTITY,
