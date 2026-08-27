@@ -16,14 +16,13 @@ from ...modules.common.exceptions import (
     DomainError,
     ResourceExistsError,
     ResourceNotFoundError,
+    UnsupportedMediaTypeError,
     ValidationError,
 )
 from ..logging import get_logger
+from .constants import PROBLEM_CONTENT_TYPE, PROBLEM_TYPE_PREFIX
 
 logger = get_logger(__name__)
-
-CONTENT_TYPE = "application/problem+json"
-PROBLEM_TYPE_PREFIX = "/problems"
 
 # Add a status code here or problem_response falls back to a generic problem.
 _TITLES: dict[int, tuple[str, str]] = {
@@ -105,7 +104,7 @@ def problem_response(
     return JSONResponse(
         status_code=status_code,
         content=body,
-        media_type=CONTENT_TYPE,
+        media_type=PROBLEM_CONTENT_TYPE,
         headers=dict(headers or {}),
     )
 
@@ -143,6 +142,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValidationError)
     async def _domain_validation(request: Request, exc: ValidationError) -> JSONResponse:
         return problem_response(request, status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc) or None)
+
+    @app.exception_handler(UnsupportedMediaTypeError)
+    async def _media_type(request: Request, exc: UnsupportedMediaTypeError) -> JSONResponse:
+        return problem_response(request, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(exc) or None)
 
     @app.exception_handler(DomainError)
     async def _domain(request: Request, exc: DomainError) -> JSONResponse:

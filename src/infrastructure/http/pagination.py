@@ -6,8 +6,7 @@ from urllib.parse import urlencode
 from fastapi import Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 
-DEFAULT_LIMIT = 50
-MAX_LIMIT = 200
+from .constants import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 
 T = TypeVar("T")
 
@@ -15,12 +14,12 @@ T = TypeVar("T")
 class Pagination(BaseModel):
     """Validated `limit`/`offset` from the query string."""
 
-    limit: int = Field(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
+    limit: int = Field(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT)
     offset: int = Field(default=0, ge=0)
 
 
 def pagination_params(
-    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT, description="Items per page.")] = DEFAULT_LIMIT,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT, description="Items per page.")] = DEFAULT_PAGE_LIMIT,
     offset: Annotated[int, Query(ge=0, description="Items to skip.")] = 0,
 ) -> Pagination:
     """Dependency supplying pagination to a collection endpoint."""

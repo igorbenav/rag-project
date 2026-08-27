@@ -17,3 +17,7 @@ class ResourceExistsError(DomainError):
 
 class ValidationError(DomainError):
     """Input failed a business rule that Pydantic cannot express."""
+
+
+class UnsupportedMediaTypeError(DomainError):
+    """The upload was not of a type this system can ingest."""

@@ -5,8 +5,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request, Response, status
 
-from ....infrastructure.http import Page, PaginationDep, paginate
-from ....infrastructure.http.problem import CONTENT_TYPE, ProblemDetail
+from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
+from ....infrastructure.http.problem import ProblemDetail
 from ....modules.collection.schemas import CollectionCreate, CollectionRead
 from ..dependencies import CollectionServiceDep, DbSession
 
@@ -16,7 +16,7 @@ _NOT_FOUND: dict[int | str, dict[str, Any]] = {
     status.HTTP_404_NOT_FOUND: {
         "model": ProblemDetail,
         "description": "No collection with that id.",
-        "content": {CONTENT_TYPE: {}},
+        "content": {PROBLEM_CONTENT_TYPE: {}},
     }
 }
 

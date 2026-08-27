@@ -1,6 +1,10 @@
+from .constants import (
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    PROBLEM_CONTENT_TYPE,
+    PROBLEM_TYPE_PREFIX,
+)
 from .pagination import (
-    DEFAULT_LIMIT,
-    MAX_LIMIT,
     Page,
     Pagination,
     PaginationDep,
@@ -18,6 +22,8 @@ __all__ = [
     "PaginationDep",
     "paginate",
     "pagination_params",
-    "DEFAULT_LIMIT",
-    "MAX_LIMIT",
+    "DEFAULT_PAGE_LIMIT",
+    "MAX_PAGE_LIMIT",
+    "PROBLEM_CONTENT_TYPE",
+    "PROBLEM_TYPE_PREFIX",
 ]
