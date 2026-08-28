@@ -14,6 +14,8 @@ from .database.session import create_tables
 from .http import register_exception_handlers
 from .logging import get_logger
 from .mistral.client import close_client
+from .security.bootstrap import bootstrap_api_key
+from .security.rate_limit import RateLimitMiddleware
 from .taskiq import broker
 
 logger = get_logger(__name__)
@@ -44,6 +46,9 @@ def lifespan_factory(
         if create_tables_on_startup:
             await create_tables()
             logger.info("Database tables ensured")
+
+        if settings.API_KEY_REQUIRED and settings.API_KEY_BOOTSTRAP:
+            await bootstrap_api_key()
 
         if not broker.is_worker_process:
             await broker.startup()
@@ -105,6 +110,9 @@ def create_application(
             allow_methods=settings.CORS_ALLOW_METHODS.split(","),
             allow_headers=settings.CORS_ALLOW_HEADERS.split(","),
         )
+
+    if settings.RATE_LIMIT_ENABLED:
+        application.add_middleware(RateLimitMiddleware)
 
     if settings.GZIP_ENABLED:
         application.add_middleware(GZipMiddleware, minimum_size=settings.GZIP_MINIMUM_SIZE)

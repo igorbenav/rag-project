@@ -108,6 +108,31 @@ class MistralSettings(BaseSettings):
     MISTRAL_MAX_RETRY_ELAPSED_MS: int = config("MISTRAL_MAX_RETRY_ELAPSED_MS", default=30000, cast=int)
 
 
+class SecuritySettings(BaseSettings):
+    API_KEY_REQUIRED: bool = config("API_KEY_REQUIRED", default=True, cast=bool)
+
+    # Create a key on first start when none exist and log it, so the service is
+    # usable straight after `docker compose up`. Turn off anywhere the log is
+    # not private.
+    API_KEY_BOOTSTRAP: bool = config("API_KEY_BOOTSTRAP", default=True, cast=bool)
+
+    RATE_LIMIT_ENABLED: bool = config("RATE_LIMIT_ENABLED", default=True, cast=bool)
+
+    # Sustained rate. A question costs several model calls and a few seconds,
+    # so this is set by what the upstream API tolerates, not by what the
+    # process could serve.
+    RATE_LIMIT_PER_MINUTE: int = config("RATE_LIMIT_PER_MINUTE", default=60, cast=int)
+
+    # Requests allowed back-to-back before the sustained rate applies. Enough
+    # for a page load that fetches a collection, its documents and its history
+    # at once.
+    RATE_LIMIT_BURST: int = config("RATE_LIMIT_BURST", default=20, cast=int)
+
+    # Prefixes, not exact paths: Swagger loads /docs/oauth2-redirect and the
+    # UI serves /static/*, both of which an exact-match list would throttle.
+    RATE_LIMIT_EXEMPT_PREFIXES: tuple = ("/health", "/docs", "/redoc", "/openapi.json", "/static")
+
+
 class RetrievalSettings(BaseSettings):
     RETRIEVAL_CANDIDATES: int = config("RETRIEVAL_CANDIDATES", default=20, cast=int)
     RETRIEVAL_TOP_K: int = config("RETRIEVAL_TOP_K", default=5, cast=int)
@@ -176,6 +201,7 @@ class Settings(
     CORSSettings,
     APISettings,
     AppSettings,
+    SecuritySettings,
     MistralSettings,
     RetrievalSettings,
     TaskiqSettings,

@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterator, List
 
+from ..common.text import split_sentences
 from .constants import (
     CHUNK_MAX_CHARS,
     CHUNK_OVERLAP_CHARS,
@@ -22,9 +23,6 @@ from .constants import (
 from .pdf import ExtractedPdf
 
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
-
-# Over-splits on "et al." and "Fig. 3"; no abbreviation list can be complete.
-_SENTENCE_END = re.compile(r'(?<=[.!?])["\')\]]?\s+')
 
 _JOIN = "\n\n"
 
@@ -36,10 +34,6 @@ class TextChunk:
     text: str
     page: int
     ordinal: int
-
-
-def _split_into_sentences(paragraph: str) -> List[str]:
-    return [part for part in _SENTENCE_END.split(paragraph) if part.strip()]
 
 
 def _split_oversized_sentence(sentence: str) -> List[str]:
@@ -70,7 +64,7 @@ def _structural_segments(page_text: str) -> Iterator[str]:
             yield paragraph
             continue
 
-        for sentence in _split_into_sentences(paragraph):
+        for sentence in split_sentences(paragraph):
             if len(sentence) <= CHUNK_MAX_CHARS:
                 yield sentence
             else:

@@ -11,19 +11,17 @@ answer with no support at all; this catches the sentence inside a supported
 answer that nothing backs.
 """
 
-import re
 from typing import List, Sequence
 
 from ...infrastructure.config.settings import get_settings
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_chat
+from ..common.text import split_sentences as _split
 from .constants import MAX_SENTENCES_TO_CHECK
 from .prompts import EVIDENCE_SYSTEM_PROMPT, format_evidence_check
 from .schemas import EvidenceCheck, UnsupportedClaim
 
 logger = get_logger(__name__)
-
-_SENTENCE_END = re.compile(r'(?<=[.!?])["\')\]]?\s+')
 
 
 def split_sentences(answer: str) -> List[str]:
@@ -32,8 +30,7 @@ def split_sentences(answer: str) -> List[str]:
     Answers here are short, so a list item or a bare value counts as a
     sentence: "8" is a claim that either the passages carry or they do not.
     """
-    parts = [part.strip() for part in _SENTENCE_END.split(answer.strip()) if part.strip()]
-    return parts[:MAX_SENTENCES_TO_CHECK]
+    return _split(answer)[:MAX_SENTENCES_TO_CHECK]
 
 
 async def check_evidence(answer: str, passages: Sequence[str]) -> List[UnsupportedClaim]:

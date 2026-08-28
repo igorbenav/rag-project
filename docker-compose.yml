@@ -17,6 +17,7 @@ services:
       - ./src:/code/src
       - ./eval:/code/eval
       - ./samples:/code/samples
+      - ./scripts:/code/scripts
       - ./.env:/code/.env
 
   worker:

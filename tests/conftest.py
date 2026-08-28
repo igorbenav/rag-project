@@ -13,6 +13,10 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 os.environ.setdefault("CREATE_TABLES_ON_STARTUP", "false")
+os.environ.setdefault("API_KEY_REQUIRED", "false")
+# The suite fires far more requests than a real client would, through a single
+# in-process bucket. Both are exercised by their own tests instead.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 # Ryuk needs to bind-mount the docker socket, which Docker Desktop's
 # ~/.docker/run/docker.sock does not support. The context manager cleans up.
 os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
