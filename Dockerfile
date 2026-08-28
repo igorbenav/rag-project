@@ -1,4 +1,19 @@
-# --------- requirements ---------
+# --------- frontend build ---------
+# The React client is compiled here and copied into the API image, so the
+# reviewer runs one command and FastAPI serves everything from one origin.
+
+FROM node:22-alpine AS frontend
+
+WORKDIR /build
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+
+# --------- python requirements ---------
 
 FROM python:3.11 AS requirements-stage
 
@@ -11,7 +26,8 @@ COPY pyproject.toml /tmp/
 RUN uv pip compile pyproject.toml -o requirements.txt
 
 
-# --------- final image build ---------
+# --------- final image ---------
+
 FROM python:3.11
 
 WORKDIR /code
@@ -23,7 +39,8 @@ COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-COPY src /code/src
+COPY backend/src /code/src
+COPY --from=frontend /build/dist /code/static
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

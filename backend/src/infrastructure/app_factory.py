@@ -15,6 +15,7 @@ from .http import register_exception_handlers
 from .logging import get_logger
 from .mistral.client import close_client
 from .security.bootstrap import bootstrap_api_key
+from .security.headers import SecurityHeadersMiddleware
 from .security.rate_limit import RateLimitMiddleware
 from .taskiq import broker
 
@@ -110,6 +111,8 @@ def create_application(
             allow_methods=settings.CORS_ALLOW_METHODS.split(","),
             allow_headers=settings.CORS_ALLOW_HEADERS.split(","),
         )
+
+    application.add_middleware(SecurityHeadersMiddleware)
 
     if settings.RATE_LIMIT_ENABLED:
         application.add_middleware(RateLimitMiddleware)

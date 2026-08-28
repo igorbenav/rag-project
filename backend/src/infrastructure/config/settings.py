@@ -108,6 +108,12 @@ class MistralSettings(BaseSettings):
     MISTRAL_MAX_RETRY_ELAPSED_MS: int = config("MISTRAL_MAX_RETRY_ELAPSED_MS", default=30000, cast=int)
 
 
+class UISettings(BaseSettings):
+    # Where the built client lives. Empty means "work it out": /code/static in
+    # the container, frontend/dist when running from a checkout.
+    STATIC_DIR: str = config("STATIC_DIR", default="")
+
+
 class SecuritySettings(BaseSettings):
     API_KEY_REQUIRED: bool = config("API_KEY_REQUIRED", default=True, cast=bool)
 
@@ -202,6 +208,7 @@ class Settings(
     CORSSettings,
     APISettings,
     AppSettings,
+    UISettings,
     SecuritySettings,
     MistralSettings,
     RetrievalSettings,
