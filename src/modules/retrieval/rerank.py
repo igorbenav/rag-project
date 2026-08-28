@@ -21,6 +21,7 @@ from .schemas import RankedChunk, RerankOrder
 
 logger = get_logger(__name__)
 
+
 def _format_candidates(question: str, candidates: Sequence[RankedChunk]) -> str:
     passages = "\n".join(
         f"[{position}] {candidate.chunk.content[:RERANK_PASSAGE_CHARS]}" for position, candidate in enumerate(candidates)

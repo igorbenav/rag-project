@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 _PUNCTUATION = re.compile(r"[^\w\s]")
 
+
 def _normalise(query: str) -> str:
     return _PUNCTUATION.sub("", query.strip().lower()).strip()
 

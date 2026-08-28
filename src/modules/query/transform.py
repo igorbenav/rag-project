@@ -17,6 +17,7 @@ from .schemas import QueryTransformation, TransformedQuery
 
 logger = get_logger(__name__)
 
+
 def _keyword_query(search_phrase: str, key_terms: list[str]) -> str:
     """Join the phrase with its expansions.
 
