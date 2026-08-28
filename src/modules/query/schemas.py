@@ -1,8 +1,8 @@
 """Types describing what a query is and what should happen to it."""
 
 import enum
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -36,6 +36,51 @@ class IntentDecision:
     needs_retrieval: bool
     decided_by: str
     reason: str
+
+
+class QueryTransformation(BaseModel):
+    """Schema the model fills in when rewriting a query for retrieval."""
+
+    search_phrase: str = Field(
+        max_length=300,
+        description="The question restated as a dense, retrieval-friendly phrase.",
+    )
+    key_terms: List[str] = Field(
+        default_factory=list,
+        max_length=12,
+        description="Exact terms, acronyms and expansions worth matching literally.",
+    )
+    sub_questions: List[str] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Only for genuinely multi-part questions; otherwise empty.",
+    )
+
+
+@dataclass(frozen=True)
+class TransformedQuery:
+    """One query, phrased for each retriever that will see it.
+
+    The two retrievers want different things. An embedding is happiest with
+    fluent natural language, so the dense side keeps close to what the user
+    wrote. BM25 matches literal tokens, so the keyword side gets the acronyms
+    and expansions the user did not type.
+    """
+
+    original: str
+    dense_query: str
+    keyword_query: str
+    key_terms: List[str] = field(default_factory=list)
+    sub_questions: List[str] = field(default_factory=list)
+    transformed_by: str = "passthrough"
+
+    @property
+    def was_transformed(self) -> bool:
+        return self.transformed_by != "passthrough"
+
+    @classmethod
+    def untransformed(cls, query: str) -> "TransformedQuery":
+        return cls(original=query, dense_query=query, keyword_query=query)
 
 
 class PolicyAction(str, enum.Enum):
