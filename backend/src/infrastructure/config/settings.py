@@ -155,6 +155,10 @@ class RetrievalSettings(BaseSettings):
     # query, which is why it can be turned off.
     EVIDENCE_CHECK_ENABLED: bool = config("EVIDENCE_CHECK_ENABLED", default=True, cast=bool)
 
+    # Lay a finished answer out as a list or table when it reads like one.
+    # A separate model call, so it cannot affect the answer or its citations.
+    ANSWER_SHAPING_ENABLED: bool = config("ANSWER_SHAPING_ENABLED", default=True, cast=bool)
+
     # Measured against the evaluation set: answerable questions scored 0.748
     # and above, out-of-corpus ones 0.633 and above. The ranges overlap, so no
     # threshold separates them — 0.773 belongs to a question about GPT-4, which

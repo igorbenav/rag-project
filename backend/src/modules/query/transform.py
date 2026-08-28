@@ -49,6 +49,5 @@ async def transform_query(query: str) -> TransformedQuery:
         dense_query=search_phrase,
         keyword_query=_keyword_query(search_phrase, result.key_terms),
         key_terms=result.key_terms,
-        sub_questions=result.sub_questions,
         transformed_by="model",
     )

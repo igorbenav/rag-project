@@ -32,6 +32,62 @@ function CitationChip({ citation, filename }: { citation: Citation; filename: st
   );
 }
 
+/** Renders whichever shape the shaping pass produced, defaulting to prose. */
+function AnswerBody({ query }: { query: Query }) {
+  const prose = (
+    <p className={`text-sm ${query.answered ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+      {query.answer}
+    </p>
+  );
+
+  if (query.answer_table) {
+    return (
+      <>
+        {prose}
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-slate-500">
+              <tr>
+                {query.answer_table.columns.map((column) => (
+                  <th key={column} className="border-b border-slate-200 pb-1 pr-4 font-medium">
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="text-slate-800">
+              {query.answer_table.rows.map((row) => (
+                <tr key={row.join('|')}>
+                  {row.map((cell, index) => (
+                    <td key={index} className="border-b border-slate-100 py-1 pr-4">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  }
+
+  if (query.answer_list.length > 0) {
+    return (
+      <>
+        {prose}
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-800">
+          {query.answer_list.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </>
+    );
+  }
+
+  return prose;
+}
+
 export function Message({ query, documents }: { query: Query; documents: Map<string, string> }) {
   return (
     <div className="space-y-3">
@@ -42,9 +98,7 @@ export function Message({ query, documents }: { query: Query; documents: Map<str
           <p className="mb-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">{query.disclaimer}</p>
         )}
 
-        <p className={`text-sm ${query.answered ? 'text-slate-800' : 'text-slate-500 italic'}`}>
-          {query.answer}
-        </p>
+        <AnswerBody query={query} />
 
         {query.unsupported_claims.length > 0 && (
           <div className="mt-2 rounded bg-red-50 px-2 py-1.5">

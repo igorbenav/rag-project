@@ -48,11 +48,6 @@ class QueryTransformation(BaseModel):
         max_length=12,
         description="Exact terms, acronyms and expansions worth matching literally.",
     )
-    sub_questions: List[str] = Field(
-        default_factory=list,
-        max_length=4,
-        description="Only for genuinely multi-part questions; otherwise empty.",
-    )
 
 
 @dataclass(frozen=True)
@@ -69,7 +64,6 @@ class TransformedQuery:
     dense_query: str
     keyword_query: str
     key_terms: List[str] = field(default_factory=list)
-    sub_questions: List[str] = field(default_factory=list)
     transformed_by: str = "passthrough"
 
     @property
@@ -148,6 +142,13 @@ class TraceRead(BaseModel):
     candidates: List[CandidateRead] = Field(default_factory=list)
 
 
+class AnswerTableRead(BaseModel):
+    """A comparison the client renders as a table."""
+
+    columns: List[str] = Field(default_factory=list)
+    rows: List[List[str]] = Field(default_factory=list)
+
+
 class QueryCreate(BaseModel):
     """Body of `POST /collections/{collection_id}/queries`."""
 
@@ -165,6 +166,8 @@ class QueryRead(BaseModel):
     answer: str
     answered: bool
     intent: str
+    answer_list: List[str] = Field(default_factory=list)
+    answer_table: Optional[AnswerTableRead] = None
     refusal_reason: Optional[str] = None
     disclaimer: Optional[str] = None
     citations: List[CitationRead] = Field(default_factory=list)
@@ -185,6 +188,8 @@ class QueryRead(BaseModel):
             answer=query.answer,
             answered=query.answered,
             intent=query.intent,
+            answer_list=query.answer_list or [],
+            answer_table=AnswerTableRead(**query.answer_table) if query.answer_table else None,
             refusal_reason=query.refusal_reason,
             disclaimer=query.disclaimer,
             citations=[CitationRead(**citation) for citation in (query.citations or [])],

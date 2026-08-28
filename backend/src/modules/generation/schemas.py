@@ -42,6 +42,31 @@ class UnsupportedClaim:
     reason: str
 
 
+class AnswerShape(BaseModel):
+    """How a finished answer should be laid out, decided in a separate call.
+
+    No format field: the shape is whichever collection comes back populated,
+    so there is no second value that can disagree with the data.
+    """
+
+    items: List[str] = Field(
+        default_factory=list,
+        description="One entry per thing the answer lists. Empty unless the answer is a list.",
+    )
+    table_columns: List[str] = Field(
+        default_factory=list, description="Column headers. Empty unless the answer is a comparison."
+    )
+    table_rows: List[List[str]] = Field(default_factory=list, description="One list of cells per row, matching table_columns.")
+
+
+@dataclass(frozen=True)
+class AnswerTable:
+    """A comparison, as columns and rows rather than formatted text."""
+
+    columns: List[str]
+    rows: List[List[str]]
+
+
 @dataclass(frozen=True)
 class Citation:
     """A passage the answer rests on, resolvable to a URL."""
@@ -57,6 +82,8 @@ class Answer:
     """A generated reply and everything needed to justify it."""
 
     text: str
+    list_items: List[str] = field(default_factory=list)
+    table: Optional["AnswerTable"] = None
     citations: List[Citation] = field(default_factory=list)
     answered: bool = True
     refusal_reason: Optional[str] = None

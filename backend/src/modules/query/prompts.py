@@ -27,9 +27,6 @@ wondering".
 not spell out, the expansion of acronyms they did, technical terms, proper \
 nouns, model names, numbers. Include both forms when one implies the other, \
 for example "MIPS" and "maximum inner product search".
-- sub_questions: only when the question genuinely asks two or more separable \
-things. A single question with a qualifying clause is one question.
-
 Do not answer the question. Do not invent facts, entities or numbers that the \
 question does not mention. Do not add generic words like "information", \
 "details" or "document" as key terms — they match everything and rank nothing."""

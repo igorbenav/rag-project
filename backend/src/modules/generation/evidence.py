@@ -33,7 +33,7 @@ def split_sentences(answer: str) -> List[str]:
     return _split(answer)[:MAX_SENTENCES_TO_CHECK]
 
 
-async def check_evidence(answer: str, passages: Sequence[str]) -> List[UnsupportedClaim]:
+async def check_evidence(question: str, answer: str, passages: Sequence[str]) -> List[UnsupportedClaim]:
     """Return the sentences the passages do not support.
 
     An empty list means either that everything checked out or that the check
@@ -45,7 +45,7 @@ async def check_evidence(answer: str, passages: Sequence[str]) -> List[Unsupport
 
     try:
         result = await get_chat().parse(
-            format_evidence_check(passages, sentences),
+            format_evidence_check(question, passages, sentences),
             EvidenceCheck,
             system=EVIDENCE_SYSTEM_PROMPT,
             model=get_settings().MISTRAL_GENERATION_MODEL,

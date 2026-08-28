@@ -82,6 +82,9 @@ You receive numbered passages and the numbered sentences of an answer. For \
 each sentence return supported: true only when a passage states it, or states \
 something it follows from directly.
 
+Read each sentence as an answer to the question, not as a standalone claim. \
+An answer is often terse: "8" is supported when a passage says the value is 8.
+
 Mark a sentence unsupported when it introduces a figure, name, date or claim \
 that no passage contains — even when you know it to be true. You are checking \
 the passages, not the world.
@@ -90,8 +93,35 @@ Do not mark a sentence unsupported merely for rewording a passage, for \
 combining two passages, or for being brief."""
 
 
-def format_evidence_check(passages: Sequence[str], sentences: Sequence[str]) -> str:
-    """Number both sides so verdicts can refer to sentences by position."""
+def format_evidence_check(question: str, passages: Sequence[str], sentences: Sequence[str]) -> str:
+    """Number both sides so verdicts can refer to sentences by position.
+
+    The question is included because a good answer is often terse. "8" states
+    nothing on its own; as an answer to "how many attention heads?" it states
+    something a passage either carries or does not.
+    """
     numbered_passages = "\n\n".join(f"[{index}] {text}" for index, text in enumerate(passages))
     numbered_sentences = "\n".join(f"({index}) {text}" for index, text in enumerate(sentences))
-    return f"Passages:\n{numbered_passages}\n\nAnswer sentences:\n{numbered_sentences}"
+    return f"Question: {question}\n\nPassages:\n{numbered_passages}\n\nAnswer sentences:\n{numbered_sentences}"
+
+
+SHAPING_SYSTEM_PROMPT = """You decide how a finished answer should be laid out. \
+You are not writing or checking the answer, only rearranging what it already \
+says.
+
+Return one of three things:
+- items: when the answer names several parallel things, one entry each. Keep \
+the wording of the answer; do not add, merge or explain.
+- table_columns and table_rows: when the answer compares two or more subjects \
+across the same attributes. Every row must have exactly one cell per column.
+- nothing at all: when the answer is a single statement, a number, or a short \
+sentence. Most answers are this. Leave every field empty and the answer stays \
+as prose.
+
+Never invent a value that is not in the answer. If a cell has no value in the \
+answer, leave it empty rather than filling it in."""
+
+
+def format_for_shaping(question: str, answer: str) -> str:
+    """The finished answer, with the question that produced it for context."""
+    return f"Question: {question}\n\nAnswer: {answer}"

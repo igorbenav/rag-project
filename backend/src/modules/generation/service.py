@@ -8,6 +8,7 @@ from ...infrastructure.mistral import get_chat
 from ..query.schemas import Intent, PolicyAction, PolicyDecision
 from ..retrieval.schemas import RankedChunk, RetrievalResult
 from .constants import CITATION_SNIPPET_CHARS
+from .evidence import check_evidence, split_sentences
 from .prompts import (
     ANSWER_SYSTEM_PROMPT,
     CANNED_REPLIES,
@@ -15,7 +16,8 @@ from .prompts import (
     about_the_system_reply,
     format_passages,
 )
-from .schemas import Answer, Citation, GeneratedAnswer
+from .schemas import Answer, Citation, GeneratedAnswer, UnsupportedClaim
+from .shaping import shape_answer, table_of
 
 logger = get_logger(__name__)
 
@@ -108,9 +110,27 @@ class GenerationService:
 
         disclaimer = policy.message if policy and policy.action is PolicyAction.DISCLAIM else None
 
+        text = generated.answer.strip()
+
+        unsupported: List[UnsupportedClaim] = []
+        checked = get_settings().EVIDENCE_CHECK_ENABLED
+        if checked:
+            unsupported = await check_evidence(question, text, passages)
+            if unsupported:
+                logger.warning("Evidence check flagged %d sentence(s)", len(unsupported))
+
+            if len(unsupported) == len(split_sentences(text)):
+                return self.refuse("unsupported_by_evidence")
+
+        shape = await shape_answer(question, text)
+
         return Answer(
-            text=generated.answer.strip(),
+            text=text,
+            list_items=shape.items if shape else [],
+            table=table_of(shape) if shape else None,
             citations=citations,
             answered=True,
             disclaimer=disclaimer,
+            unsupported_claims=unsupported,
+            evidence_checked=checked,
         )

@@ -171,6 +171,8 @@ class QueryService:
             intent=intent.intent.value,
             refusal_reason=answer.refusal_reason,
             disclaimer=answer.disclaimer,
+            answer_list=list(answer.list_items),
+            answer_table=({"columns": answer.table.columns, "rows": answer.table.rows} if answer.table else None),
             citations=_citation_rows(answer),
             unsupported_claims=[{"sentence": claim.sentence, "reason": claim.reason} for claim in answer.unsupported_claims],
             evidence_checked=answer.evidence_checked,

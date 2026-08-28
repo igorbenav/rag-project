@@ -29,6 +29,9 @@ class Query(Base, UUIDMixin, TimestampMixin):
     refusal_reason: Mapped[Optional[str]] = mapped_column(String(64), default=None)
     disclaimer: Mapped[Optional[str]] = mapped_column(Text, default=None)
 
+    answer_list: Mapped[List[str]] = mapped_column(JSON, default_factory=list)
+    answer_table: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, default=None)
+
     citations: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default_factory=list)
     unsupported_claims: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default_factory=list)
     evidence_checked: Mapped[bool] = mapped_column(Boolean, default=False)
