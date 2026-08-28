@@ -17,6 +17,7 @@ dependencies = [
     "taskiq-redis>=1.2.3",
     "taskiq>=0.12.5",
     "numpy>=2.4.6",
+    "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]

@@ -123,9 +123,18 @@ class RetrievalSettings(BaseSettings):
     # query, which is why it can be turned off.
     EVIDENCE_CHECK_ENABLED: bool = config("EVIDENCE_CHECK_ENABLED", default=True, cast=bool)
 
-    # Calibrated in Phase 7 against the evaluation set. Zero until then, so
-    # nothing is silently refused on an unmeasured threshold.
-    RETRIEVAL_MIN_SIMILARITY: float = config("RETRIEVAL_MIN_SIMILARITY", default=0.0, cast=float)
+    # Measured against the evaluation set: answerable questions scored 0.748
+    # and above, out-of-corpus ones 0.633 and above. The ranges overlap, so no
+    # threshold separates them — 0.773 belongs to a question about GPT-4, which
+    # is topically close to a paper full of learning-rate schedules without
+    # being answerable from it. Cosine similarity measures subject matter, not
+    # whether the thing asked about is present.
+    #
+    # So this is a cheap pre-filter, not the decision: 0.70 sits below every
+    # answerable question and above the clearly unrelated ones, skipping a
+    # generation call for those. Everything above it is judged by the model,
+    # which is what actually catches the GPT-4 case.
+    RETRIEVAL_MIN_SIMILARITY: float = config("RETRIEVAL_MIN_SIMILARITY", default=0.70, cast=float)
 
 
 class TaskiqSettings(BaseSettings):
