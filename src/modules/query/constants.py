@@ -72,10 +72,14 @@ PII_PATTERNS = (
 # question is usually legitimate.
 LEGAL_PATTERNS = (
     r"\b(should|can|do) i sue\b",
-    r"\bis (this|it|that)(\s+\w+){0,2}\s+(legal|illegal|binding|enforceable)\b",
-    r"\b(legal advice|my legal (rights|position))\b",
     r"\bam i liable\b",
     r"\bwill i (win|lose) (the|my) case\b",
+    r"\b(legal advice|my legal (rights|position))\b",
+    # Predicative only. "Is this legal?" asks for a judgement; "is this the
+    # legal filing" asks about a document that happens to be one.
+    r"\bis (this|it|that) legal\b",
+    r"\blegally (binding|enforceable)\b",
+    r"\bis (this|it|that)(\s+\w+){0,2}\s+(binding|enforceable)\b",
 )
 
 MEDICAL_PATTERNS = (
