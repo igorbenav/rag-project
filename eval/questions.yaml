@@ -1,0 +1,114 @@
+# Retrieval evaluation set.
+#
+# Written before any retrieval existed, against the PDFs in samples/. Expected
+# pages were located by searching the extracted text, not recalled — a question
+# whose answer is not verifiably on a page cannot score anything.
+#
+# Fields:
+#   question       what a user would type
+#   document       source filename, or null when no document should answer it
+#   pages          1-based pages that contain the answer; retrieval is correct
+#                  if it surfaces a chunk from any of them
+#   expect_refusal true when the system should decline rather than answer
+#   note           why the case is here, when that is not obvious
+
+- question: How many attention heads does the base Transformer use?
+  document: attention-is-all-you-need.pdf
+  pages: [5]
+
+- question: Which optimizer trained the Transformer, and with how many warmup steps?
+  document: attention-is-all-you-need.pdf
+  pages: [7]
+  note: Two facts on one page; a partial answer is a partial retrieval failure.
+
+- question: What label smoothing value was used when training the Transformer?
+  document: attention-is-all-you-need.pdf
+  pages: [8]
+
+- question: How many identical layers are stacked in the Transformer encoder?
+  document: attention-is-all-you-need.pdf
+  pages: [3]
+
+- question: What BLEU score did the big Transformer reach on English-to-German?
+  document: attention-is-all-you-need.pdf
+  pages: [1, 8]
+  note: Stated in the abstract and again in the results table.
+
+- question: How many parameters does BERT-base have compared with BERT-large?
+  document: bert.pdf
+  pages: [3]
+
+- question: What percentage of tokens does BERT mask during pre-training?
+  document: bert.pdf
+  pages: [4]
+  note: "15% also appears on later pages in other contexts; page 4 is the definition."
+
+- question: What GLUE score did BERT-large achieve?
+  document: bert.pdf
+  pages: [1, 6]
+
+- question: What tokenizer and vocabulary size does BERT use?
+  document: bert.pdf
+  pages: [4]
+
+- question: What retriever and generator does RAG combine?
+  document: retrieval-augmented-generation.pdf
+  pages: [2, 3]
+
+- question: What is the difference between RAG-Sequence and RAG-Token?
+  document: retrieval-augmented-generation.pdf
+  pages: [3, 4]
+
+- question: How many passages are in the Wikipedia index RAG retrieves from?
+  document: retrieval-augmented-generation.pdf
+  pages: [4]
+
+- question: How does RAG search the document index at inference time?
+  document: retrieval-augmented-generation.pdf
+  pages: [2, 3, 4]
+  note: MIPS. Phrased without the acronym, so the query has to be transformed.
+
+- question: Which generation task did RAG evaluate besides open-domain QA?
+  document: retrieval-augmented-generation.pdf
+  pages: [2, 5, 6]
+
+# --- Cross-document: the answer needs more than one source ---
+
+- question: Which of these papers uses a pre-trained retriever, and which trains attention from scratch?
+  document: null
+  pages: []
+  note: Spans two documents. Scored on whether both are surfaced, not on pages.
+
+# --- Must not retrieve: the brief's explicit requirement ---
+
+- question: hello
+  document: null
+  pages: []
+  expect_refusal: true
+  note: The brief names this exact case. Intent detection must skip retrieval.
+
+- question: thanks, that was helpful
+  document: null
+  pages: []
+  expect_refusal: true
+
+- question: what can you do?
+  document: null
+  pages: []
+  expect_refusal: true
+  note: About the system, not its documents.
+
+# --- In the corpus' domain but absent from it ---
+
+- question: What learning rate schedule does GPT-4 use?
+  document: null
+  pages: []
+  expect_refusal: true
+  note: Plausible and on-topic, but unanswerable from these three papers.
+        Distinguishes real grounding from confident invention.
+
+- question: What was Salesforce's revenue in fiscal 2024?
+  document: null
+  pages: []
+  expect_refusal: true
+  note: Wholly outside the corpus.
