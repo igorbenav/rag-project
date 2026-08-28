@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, Request, Response, UploadFile, status
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
 from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.idempotency import idempotency_key, idempotency_store
+from ....infrastructure.http.links import ingestion_links
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.common.exceptions import UnsupportedMediaTypeError
 from ....modules.document.schemas import DocumentRead
@@ -74,6 +75,8 @@ async def ingest_documents(
 
     response.headers["Location"] = f"/api/v1/ingestions/{job.id}"
     read = IngestionJobRead.model_validate(job)
+    read.document_ids = document_ids
+    read.links = ingestion_links(job.id, job.collection_id)
 
     if key:
         idempotency_store.put(key, fingerprint, read)
