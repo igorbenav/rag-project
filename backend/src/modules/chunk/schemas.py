@@ -24,3 +24,5 @@ class ChunkRead(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    links: Dict[str, str] = Field(default_factory=dict, serialization_alias="_links")

@@ -28,3 +28,5 @@ class CollectionRead(BaseModel):
     chunk_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    links: Dict[str, str] = Field(default_factory=dict, serialization_alias="_links")

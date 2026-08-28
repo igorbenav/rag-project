@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...infrastructure.http import collection_links
 from ...modules.common.exceptions import ResourceNotFoundError
 from ..chunk.models import Chunk
 from ..document.models import Document
@@ -49,6 +50,7 @@ def _to_read(row: Any) -> CollectionRead:
         updated_at=collection.updated_at,
         document_count=row.document_count,
         chunk_count=row.chunk_count,
+        links=collection_links(collection.id),
     )
 
 
@@ -72,6 +74,7 @@ class CollectionService:
             metadata=collection.extra_metadata or {},
             created_at=collection.created_at,
             updated_at=collection.updated_at,
+            links=collection_links(collection.id),
         )
 
     async def get(self, collection_id: UUID, db: AsyncSession) -> CollectionRead:

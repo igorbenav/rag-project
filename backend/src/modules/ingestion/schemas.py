@@ -1,7 +1,7 @@
 """Response schemas for ingestion."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,3 +24,5 @@ class IngestionJobRead(BaseModel):
     document_ids: List[UUID] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    links: Dict[str, str] = Field(default_factory=dict, serialization_alias="_links")

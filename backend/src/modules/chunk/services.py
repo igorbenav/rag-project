@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...infrastructure.http import chunk_links
 from ..common.exceptions import ResourceNotFoundError
 from .models import Chunk
 from .schemas import ChunkRead
@@ -21,6 +22,7 @@ def _to_read(chunk: Chunk) -> ChunkRead:
         metadata=chunk.extra_metadata or {},
         created_at=chunk.created_at,
         updated_at=chunk.updated_at,
+        links=chunk_links(chunk.id, chunk.document_id),
     )
 
 

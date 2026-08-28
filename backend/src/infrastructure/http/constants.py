@@ -1,5 +1,9 @@
 """Constants for the HTTP conventions this API applies uniformly."""
 
+# Every link this API emits is rooted here. Named once so a version bump moves
+# every href rather than only the ones someone remembered.
+API_PREFIX = "/api/v1"
+
 # RFC 9457. Every error response carries this, not application/json.
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 

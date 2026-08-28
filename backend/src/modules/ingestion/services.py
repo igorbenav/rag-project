@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...infrastructure.http import ingestion_links
 from ..common.exceptions import ResourceNotFoundError
 from ..document.models import Document
 from .models import IngestionJob
@@ -37,6 +38,7 @@ class IngestionService:
             document_ids=document_ids,
             created_at=job.created_at,
             updated_at=job.updated_at,
+            links=ingestion_links(job.id, job.collection_id),
         )
 
     async def _document_ids(self, job_id: UUID, db: AsyncSession) -> List[UUID]:

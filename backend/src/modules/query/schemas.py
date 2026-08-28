@@ -3,10 +3,12 @@
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from ...infrastructure.http import chunk_links, query_links
 
 
 class Intent(str, enum.Enum):
@@ -97,12 +99,13 @@ class PolicyDecision:
 
 
 class CitationRead(BaseModel):
-    """A passage the answer rests on. `chunk_id` resolves at /api/v1/chunks/{id}."""
+    """A passage the answer rests on, with the URL that resolves it."""
 
     chunk_id: UUID
     document_id: UUID
     page: int
     snippet: str
+    links: Dict[str, str] = Field(default_factory=dict, serialization_alias="_links")
 
 
 class UnsupportedClaimRead(BaseModel):
@@ -178,6 +181,8 @@ class QueryRead(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+    links: Dict[str, str] = Field(default_factory=dict, serialization_alias="_links")
+
     @classmethod
     def from_model(cls, query: Any) -> "QueryRead":
         """Build from the stored row, whose citations and trace are JSON."""
@@ -192,11 +197,18 @@ class QueryRead(BaseModel):
             answer_table=AnswerTableRead(**query.answer_table) if query.answer_table else None,
             refusal_reason=query.refusal_reason,
             disclaimer=query.disclaimer,
-            citations=[CitationRead(**citation) for citation in (query.citations or [])],
+            citations=[
+                CitationRead(
+                    **citation,
+                    links=chunk_links(UUID(citation["chunk_id"]), UUID(citation["document_id"])),
+                )
+                for citation in (query.citations or [])
+            ],
             unsupported_claims=[UnsupportedClaimRead(**claim) for claim in (query.unsupported_claims or [])],
             evidence_checked=query.evidence_checked,
             trace=TraceRead(**query.trace) if query.trace else None,
             elapsed_seconds=query.elapsed_seconds,
             created_at=query.created_at,
             updated_at=query.updated_at,
+            links=query_links(query.id, query.collection_id),
         )
