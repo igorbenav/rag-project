@@ -160,7 +160,16 @@ class TestCascade:
         document = Document(collection_id=collection_id, filename="report.pdf", checksum="a" * 64)
         db.add(document)
         await db.commit()
-        db.add(Chunk(document_id=document.id, content="text", page=1, ordinal=0, embedding=[0.1, 0.2]))
+        db.add(
+            Chunk(
+                document_id=document.id,
+                content="text",
+                page=1,
+                ordinal=0,
+                embedding=[0.1, 0.2],
+                embedding_model="test-embed",
+            )
+        )
         await db.commit()
 
         counts = (await client.get(f"{BASE}/{collection_id}")).json()

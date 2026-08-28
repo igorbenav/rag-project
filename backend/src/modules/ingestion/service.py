@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...infrastructure.config.settings import get_settings
 from ...infrastructure.database.session import local_session
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_embedder
@@ -161,6 +162,7 @@ async def _persist_chunks(document_id: UUID, chunks: Sequence[TextChunk], vector
                     page=chunk.page,
                     ordinal=chunk.ordinal,
                     embedding=vector,
+                    embedding_model=get_settings().MISTRAL_EMBED_MODEL,
                 )
             )
         await db.commit()
@@ -199,6 +201,7 @@ async def _replace_chunks(document_id: UUID, chunks: Sequence[TextChunk], vector
                     page=chunk.page,
                     ordinal=chunk.ordinal,
                     embedding=vector,
+                    embedding_model=get_settings().MISTRAL_EMBED_MODEL,
                 )
             )
         await db.commit()

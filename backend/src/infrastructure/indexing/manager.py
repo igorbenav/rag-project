@@ -36,10 +36,15 @@ logger = get_logger(__name__)
 
 @dataclass
 class _Fingerprint:
-    """What the indexes were built from, so staleness is detectable."""
+    """What the indexes were built from, so staleness is detectable.
+
+    `models` is part of the identity: re-embedding under a different model
+    changes no count and no timestamp, but every vector in the index moves.
+    """
 
     count: int
     latest: Optional[datetime]
+    models: Tuple[str, ...]
 
 
 @dataclass
@@ -74,7 +79,15 @@ class IndexManager:
                 .where(Document.collection_id == collection_id)
             )
         ).one()
-        return _Fingerprint(count=row[0] or 0, latest=row[1])
+        models = (
+            await db.execute(
+                select(Chunk.embedding_model)
+                .join(Document, Chunk.document_id == Document.id)
+                .where(Document.collection_id == collection_id)
+                .distinct()
+            )
+        ).scalars()
+        return _Fingerprint(count=row[0] or 0, latest=row[1], models=tuple(sorted(models)))
 
     async def _load(self, collection_id: UUID, db: AsyncSession) -> _CollectionIndexes:
         """Read a collection's chunks and build both indexes from them."""
@@ -97,12 +110,16 @@ class IndexManager:
             vectors.add(chunks, embeddings)
             keywords.add(chunks)
 
+        fingerprint = await self._fingerprint(collection_id, db)
+        if len(fingerprint.models) > 1:
+            logger.warning(
+                "Collection %s mixes embedding models %s; re-ingest to make ranking comparable",
+                collection_id,
+                fingerprint.models,
+            )
+
         logger.info("Built indexes for collection %s from %d chunks", collection_id, len(chunks))
-        return _CollectionIndexes(
-            vectors=vectors,
-            keywords=keywords,
-            fingerprint=await self._fingerprint(collection_id, db),
-        )
+        return _CollectionIndexes(vectors=vectors, keywords=keywords, fingerprint=fingerprint)
 
     async def _ensure_current(self, collection_id: UUID, db: AsyncSession) -> _CollectionIndexes:
         """Return indexes matching what is in the database right now."""

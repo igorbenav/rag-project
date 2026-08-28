@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import ARRAY, JSON, Float, ForeignKey, Integer, Text
+from sqlalchemy import ARRAY, JSON, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...infrastructure.database.models import TimestampMixin, UUIDMixin
@@ -24,4 +24,5 @@ class Chunk(Base, UUIDMixin, TimestampMixin):
     page: Mapped[int] = mapped_column(Integer)
     ordinal: Mapped[int] = mapped_column(Integer)
     embedding: Mapped[List[float]] = mapped_column(ARRAY(Float))
+    embedding_model: Mapped[str] = mapped_column(String(100), index=True)
     extra_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, default=None)
