@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import List
 
-from pypdf import PdfReader
+from pypdf import PageObject, PdfReader
 from pypdf.errors import PdfReadError
 
 from ...infrastructure.logging import get_logger
@@ -64,17 +64,43 @@ def looks_like_pdf(data: bytes) -> bool:
     return data.startswith(PDF_MAGIC)
 
 
-def _normalise(text: str) -> str:
-    """Undo the artefacts of PDF layout that would otherwise reach the index.
+def _rejoin_words_broken_across_lines(text: str) -> str:
+    """Repair "trans-\nformer", which is otherwise two tokens matching neither word."""
+    return _HYPHEN_LINEBREAK.sub(r"\1\2", text)
 
-    Words hyphenated across a line break are rejoined: left alone, "trans-
-    former" is two tokens that match neither "transformer" nor each other.
-    """
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = _HYPHEN_LINEBREAK.sub(r"\1\2", text)
-    text = _TRAILING_SPACES.sub("\n", text)
-    text = _EXCESS_BLANK_LINES.sub("\n\n", text)
-    return text.strip()
+
+def _normalise_line_endings(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _collapse_layout_whitespace(text: str) -> str:
+    """Remove the ragged spacing that PDF layout leaves behind."""
+    return _EXCESS_BLANK_LINES.sub("\n\n", _TRAILING_SPACES.sub("\n", text))
+
+
+def _clean_page_text(text: str) -> str:
+    """Undo the artefacts of PDF layout that would otherwise reach the index."""
+    text = _normalise_line_endings(text)
+    text = _rejoin_words_broken_across_lines(text)
+    return _collapse_layout_whitespace(text).strip()
+
+
+def _decrypt_with_empty_password(reader: PdfReader) -> None:
+    """Open a PDF encrypted with no user password, which is common and silent."""
+    try:
+        if reader.decrypt("") == 0:
+            raise ValidationError("PDF is password protected")
+    except (NotImplementedError, PdfReadError) as exc:
+        raise ValidationError(f"PDF is encrypted and could not be opened: {exc}") from exc
+
+
+def _extract_text_or_empty(page: PageObject, number: int) -> str:
+    """One malformed page should not cost the rest of the document."""
+    try:
+        return page.extract_text() or ""
+    except Exception as exc:
+        logger.warning("Page %d could not be extracted: %s", number, exc)
+        return ""
 
 
 def _extract_sync(data: bytes) -> ExtractedPdf:
@@ -85,20 +111,12 @@ def _extract_sync(data: bytes) -> ExtractedPdf:
         raise ValidationError(f"Could not read PDF: {exc}") from exc
 
     if reader.is_encrypted:
-        try:
-            if reader.decrypt("") == 0:
-                raise ValidationError("PDF is password protected")
-        except (NotImplementedError, PdfReadError) as exc:
-            raise ValidationError(f"PDF is encrypted and could not be opened: {exc}") from exc
+        _decrypt_with_empty_password(reader)
 
-    pages: List[Page] = []
-    for index, page in enumerate(reader.pages, start=1):
-        try:
-            raw = page.extract_text() or ""
-        except Exception as exc:
-            logger.warning("Page %d could not be extracted: %s", index, exc)
-            raw = ""
-        pages.append(Page(number=index, text=_normalise(raw)))
+    pages = [
+        Page(number=number, text=_clean_page_text(_extract_text_or_empty(page, number)))
+        for number, page in enumerate(reader.pages, start=1)
+    ]
 
     if not pages:
         raise ValidationError("PDF contains no pages")
