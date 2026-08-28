@@ -10,6 +10,7 @@ from ...infrastructure.indexing.base import SearchHit
 from ...infrastructure.logging import get_logger
 from .config import RetrievalConfig
 from .fusion import reciprocal_rank_fusion
+from .rerank import rerank
 from .schemas import RankedChunk, RetrievalResult
 
 logger = get_logger(__name__)
@@ -43,14 +44,21 @@ class RetrievalService:
             keyword = await index_manager.search_keyword(collection_id, query, config.candidates_per_retriever, db)
 
         fused = reciprocal_rank_fusion(dense, keyword, config.rrf_k)
-        selected = fused[: config.top_k]
+
+        ranked = fused
+        reranked = False
+        if config.use_rerank and len(fused) > 1:
+            ranked = await rerank(query, fused[: config.rerank_candidates])
+            reranked = True
+
+        selected = ranked[: config.top_k]
 
         return RetrievalResult(
             chunks=selected,
             dense_count=len(dense),
             keyword_count=len(keyword),
             fused_count=len(fused),
-            reranked=False,
+            reranked=reranked,
             top_similarity=_best_similarity(selected),
         )
 

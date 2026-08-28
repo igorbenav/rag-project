@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from pydantic import BaseModel, Field
+
 from ...infrastructure.indexing.base import IndexedChunk
 
 
@@ -31,6 +33,14 @@ class RankedChunk:
         if self.keyword_rank is not None:
             sources.append("keyword")
         return sources
+
+
+class RerankOrder(BaseModel):
+    """Schema the reranking model fills in: positions, not text."""
+
+    ordered_indices: List[int] = Field(
+        description="Every index from the input, most useful first.",
+    )
 
 
 @dataclass

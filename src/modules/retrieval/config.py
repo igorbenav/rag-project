@@ -26,6 +26,9 @@ class RetrievalConfig:
     # Chunks handed to the generator after ranking.
     top_k: int = 5
 
+    # Fused candidates passed to the reranker.
+    rerank_candidates: int = 20
+
     # Reciprocal rank fusion constant. Damps the influence of the top ranks so
     # a chunk placed second by both retrievers can beat one placed first by
     # only one of them. 60 is the value from the original RRF paper.
@@ -43,6 +46,7 @@ class RetrievalConfig:
             candidates_per_retriever=settings.RETRIEVAL_CANDIDATES,
             top_k=settings.RETRIEVAL_TOP_K,
             rrf_k=settings.RETRIEVAL_RRF_K,
+            rerank_candidates=settings.RERANK_CANDIDATES,
             minimum_similarity=settings.RETRIEVAL_MIN_SIMILARITY,
         )
 

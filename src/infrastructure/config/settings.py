@@ -104,6 +104,11 @@ class RetrievalSettings(BaseSettings):
     RETRIEVAL_TOP_K: int = config("RETRIEVAL_TOP_K", default=5, cast=int)
     RETRIEVAL_RRF_K: int = config("RETRIEVAL_RRF_K", default=60, cast=int)
 
+    # Fused candidates shown to the reranker. Every one costs prompt tokens and
+    # latency, and the fused list is already ordered, so reranking a long tail
+    # of poor candidates buys little.
+    RERANK_CANDIDATES: int = config("RERANK_CANDIDATES", default=20, cast=int)
+
     # Calibrated in Phase 7 against the evaluation set. Zero until then, so
     # nothing is silently refused on an unmeasured threshold.
     RETRIEVAL_MIN_SIMILARITY: float = config("RETRIEVAL_MIN_SIMILARITY", default=0.0, cast=float)

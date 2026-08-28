@@ -1,0 +1,99 @@
+"""Reranking fused candidates with a language model.
+
+Retrieval ranks by similarity, which is a proxy for relevance and not the same
+thing: a chunk can be about the right topic without containing the answer. A
+model reading the question alongside each candidate judges that directly, so
+this stage fixes ordering rather than recall — it can only reorder what the
+retrievers already found.
+
+Candidates are presented in a numbered list and the model returns positions
+rather than text. Asking for text back would mean matching strings to chunks,
+and a model that paraphrases a passage would break the mapping silently.
+"""
+
+from typing import List, Sequence
+
+from ...infrastructure.logging import get_logger
+from ...infrastructure.mistral import get_chat
+from .schemas import RankedChunk, RerankOrder
+
+logger = get_logger(__name__)
+
+# Enough to judge relevance without spending the prompt on one long candidate.
+SNIPPET_CHARS = 1200
+
+RERANK_PROMPT = """You order search results by how well each one answers a \
+question.
+
+You receive a numbered list of passages. Return `ordered_indices`: every index \
+you were given, most useful first.
+
+Rules:
+- Return every index exactly once. Do not drop indices you judge irrelevant — \
+put them last.
+- A passage that states the answer outranks one that merely discusses the \
+topic.
+- A passage naming the specific figure, term or entity asked about outranks a \
+general description of it.
+- Judge only the text given. Do not use outside knowledge, and do not answer \
+the question.
+
+Example. Question: "What optimizer was used?"
+  [0] We trained the model on eight GPUs for twelve hours.
+  [1] We used the Adam optimizer with beta1 = 0.9.
+  [2] Optimization of neural networks is an active research area.
+Correct: ordered_indices = [1, 0, 2]
+  [1] states the answer; [0] is from the same training section; [2] mentions \
+optimization but says nothing about this model."""
+
+
+def _format_candidates(question: str, candidates: Sequence[RankedChunk]) -> str:
+    passages = "\n".join(
+        f"[{position}] {candidate.chunk.content[:SNIPPET_CHARS]}" for position, candidate in enumerate(candidates)
+    )
+    return f"Question: {question}\n\n{passages}"
+
+
+def _apply_order(candidates: Sequence[RankedChunk], indices: Sequence[int]) -> List[RankedChunk]:
+    """Reorder candidates, tolerating a partial or malformed answer.
+
+    Out-of-range and repeated indices are dropped, and anything the model did
+    not mention keeps its fused position at the end. A bad response degrades
+    the ordering; it never loses a candidate.
+    """
+    seen: set[int] = set()
+    ordered: List[RankedChunk] = []
+
+    for index in indices:
+        if 0 <= index < len(candidates) and index not in seen:
+            seen.add(index)
+            ordered.append(candidates[index])
+
+    ordered.extend(candidate for position, candidate in enumerate(candidates) if position not in seen)
+
+    for position, candidate in enumerate(ordered):
+        candidate.rerank_position = position
+
+    return ordered
+
+
+async def rerank(question: str, candidates: Sequence[RankedChunk]) -> List[RankedChunk]:
+    """Reorder candidates by judged relevance.
+
+    Returns the candidates untouched if the model call fails: a worse ordering
+    is better than no answer.
+    """
+    if len(candidates) < 2:
+        return list(candidates)
+
+    try:
+        result = await get_chat().parse(_format_candidates(question, candidates), RerankOrder, system=RERANK_PROMPT)
+    except Exception as exc:  # noqa: BLE001 - keep the fused order
+        logger.warning("Reranking failed, keeping the fused order: %s", exc)
+        return list(candidates)
+
+    returned = len(set(result.ordered_indices) & set(range(len(candidates))))
+    if returned < len(candidates):
+        logger.debug("Reranker returned %d of %d indices", returned, len(candidates))
+
+    return _apply_order(candidates, result.ordered_indices)
