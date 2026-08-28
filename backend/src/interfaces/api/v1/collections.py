@@ -6,8 +6,9 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Response, status
 
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
+from ....infrastructure.http.conditional import apply_read_conditions, etag_for, require_if_match
 from ....infrastructure.http.problem import ProblemDetail
-from ....modules.collection.schemas import CollectionCreate, CollectionRead
+from ....modules.collection.schemas import CollectionCreate, CollectionRead, CollectionUpdate
 from ..dependencies import CollectionServiceDep, DbSession
 
 router = APIRouter(prefix="/collections", tags=["Collections"])
@@ -64,11 +65,48 @@ async def list_collections(
 )
 async def get_collection(
     collection_id: UUID,
+    request: Request,
+    response: Response,
+    service: CollectionServiceDep,
+    db: DbSession,
+) -> CollectionRead | Response:
+    """Return one collection, with its document and chunk totals.
+
+    Carries an `ETag`. A client that sends it back as `If-None-Match` gets
+    `304` and no body.
+    """
+    collection = await service.get(collection_id, db)
+
+    not_modified = apply_read_conditions(request, response, collection)
+    return not_modified or collection
+
+
+@router.patch(
+    "/{collection_id}",
+    response_model=CollectionRead,
+    responses=_NOT_FOUND,
+    summary="Update a collection",
+)
+async def update_collection(
+    collection_id: UUID,
+    body: CollectionUpdate,
+    request: Request,
+    response: Response,
     service: CollectionServiceDep,
     db: DbSession,
 ) -> CollectionRead:
-    """Return one collection, with its document and chunk totals."""
-    return await service.get(collection_id, db)
+    """Apply a partial update.
+
+    Honours `If-Match`: send the `ETag` you read and the update is rejected
+    with `412` if the collection changed in between, rather than overwriting
+    whatever it changed to.
+    """
+    current = await service.get(collection_id, db)
+    require_if_match(request, current)
+
+    updated = await service.update(collection_id, body, db)
+    response.headers["ETag"] = etag_for(updated)
+    return updated
 
 
 @router.delete(
@@ -79,8 +117,16 @@ async def get_collection(
 )
 async def delete_collection(
     collection_id: UUID,
+    request: Request,
     service: CollectionServiceDep,
     db: DbSession,
 ) -> None:
-    """Delete a collection along with its documents and chunks."""
+    """Delete a collection along with its documents and chunks.
+
+    Honours `If-Match`, so a client can refuse to delete something that
+    changed since it last looked.
+    """
+    current = await service.get(collection_id, db)
+    require_if_match(request, current)
+
     await service.delete(collection_id, db)

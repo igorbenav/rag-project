@@ -143,13 +143,114 @@ class TestDelete:
 
 class TestMethodHandling:
     async def test_unsupported_method_is_405_problem_json(self, client: AsyncClient) -> None:
+        """PUT is not offered: an update here is partial, so PATCH is the verb."""
         created = await _create(client)
 
-        response = await client.patch(f"{BASE}/{created['id']}", json={"name": "renamed"})
+        response = await client.put(f"{BASE}/{created['id']}", json={"name": "renamed"})
 
         assert response.status_code == 405
         assert response.headers["content-type"] == PROBLEM
         assert response.json()["type"] == "/problems/method-not-allowed"
+
+
+class TestPartialUpdate:
+    async def test_patch_changes_only_what_it_names(self, client: AsyncClient) -> None:
+        created = await client.post(BASE, json={"name": "original", "description": "keep me"})
+        collection = created.json()
+
+        response = await client.patch(f"{BASE}/{collection['id']}", json={"name": "renamed"})
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "renamed"
+        assert response.json()["description"] == "keep me"
+
+    async def test_patch_of_a_missing_collection_is_404(self, client: AsyncClient) -> None:
+        response = await client.patch(f"{BASE}/{uuid4()}", json={"name": "x"})
+
+        assert response.status_code == 404
+        assert response.headers["content-type"] == PROBLEM
+
+
+class TestConditionalRequests:
+    async def test_a_read_carries_an_etag(self, client: AsyncClient) -> None:
+        created = await _create(client)
+
+        response = await client.get(f"{BASE}/{created['id']}")
+
+        assert response.headers.get("etag")
+
+    async def test_returning_the_etag_gets_304_and_no_body(self, client: AsyncClient) -> None:
+        created = await _create(client)
+        etag = (await client.get(f"{BASE}/{created['id']}")).headers["etag"]
+
+        response = await client.get(f"{BASE}/{created['id']}", headers={"If-None-Match": etag})
+
+        assert response.status_code == 304
+        assert response.content == b""
+        assert response.headers["etag"] == etag
+
+    async def test_a_stale_etag_gets_the_body(self, client: AsyncClient) -> None:
+        created = await _create(client)
+
+        response = await client.get(f"{BASE}/{created['id']}", headers={"If-None-Match": '"stale"'})
+
+        assert response.status_code == 200
+
+    async def test_a_write_with_a_stale_if_match_is_rejected(self, client: AsyncClient) -> None:
+        """The lost-update case: two clients read, both write, one silently loses."""
+        created = await _create(client)
+        etag = (await client.get(f"{BASE}/{created['id']}")).headers["etag"]
+        await client.patch(f"{BASE}/{created['id']}", json={"description": "first writer"})
+
+        response = await client.patch(
+            f"{BASE}/{created['id']}", json={"description": "second writer"}, headers={"If-Match": etag}
+        )
+
+        assert response.status_code == 412
+        assert response.json()["type"] == "/problems/precondition-failed"
+
+    async def test_the_rejected_write_did_not_apply(self, client: AsyncClient) -> None:
+        created = await _create(client)
+        etag = (await client.get(f"{BASE}/{created['id']}")).headers["etag"]
+        await client.patch(f"{BASE}/{created['id']}", json={"description": "first writer"})
+
+        await client.patch(f"{BASE}/{created['id']}", json={"description": "second writer"}, headers={"If-Match": etag})
+
+        current = (await client.get(f"{BASE}/{created['id']}")).json()
+        assert current["description"] == "first writer"
+
+    async def test_a_delete_with_a_stale_if_match_leaves_it_alone(self, client: AsyncClient) -> None:
+        created = await _create(client)
+        etag = (await client.get(f"{BASE}/{created['id']}")).headers["etag"]
+        await client.patch(f"{BASE}/{created['id']}", json={"description": "changed"})
+
+        response = await client.delete(f"{BASE}/{created['id']}", headers={"If-Match": etag})
+
+        assert response.status_code == 412
+        assert (await client.get(f"{BASE}/{created['id']}")).status_code == 200
+
+    async def test_if_match_is_optional(self, client: AsyncClient) -> None:
+        """Requiring it would break every client that does not send one."""
+        created = await _create(client)
+
+        assert (await client.delete(f"{BASE}/{created['id']}")).status_code == 204
+
+
+class TestHypermedia:
+    async def test_every_representation_carries_links(self, client: AsyncClient) -> None:
+        created = await _create(client)
+
+        body = (await client.get(f"{BASE}/{created['id']}")).json()
+
+        assert body["_links"]["self"] == f"{BASE}/{created['id']}"
+        assert body["_links"]["documents"].endswith("/documents")
+        assert body["_links"]["queries"].endswith("/queries")
+
+    async def test_the_self_link_resolves(self, client: AsyncClient) -> None:
+        created = await _create(client)
+        body = (await client.get(f"{BASE}/{created['id']}")).json()
+
+        assert (await client.get(body["_links"]["self"])).status_code == 200
 
 
 class TestCascade:

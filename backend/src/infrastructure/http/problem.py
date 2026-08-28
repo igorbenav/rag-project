@@ -34,6 +34,7 @@ _TITLES: dict[int, tuple[str, str]] = {
     status.HTTP_406_NOT_ACCEPTABLE: ("not-acceptable", "Not acceptable"),
     status.HTTP_409_CONFLICT: ("conflict", "Conflict"),
     status.HTTP_412_PRECONDITION_FAILED: ("precondition-failed", "Precondition failed"),
+    status.HTTP_428_PRECONDITION_REQUIRED: ("precondition-required", "Precondition required"),
     status.HTTP_413_CONTENT_TOO_LARGE: ("content-too-large", "Content too large"),
     status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: ("unsupported-media-type", "Unsupported media type"),
     status.HTTP_422_UNPROCESSABLE_CONTENT: ("validation-failed", "Validation failed"),

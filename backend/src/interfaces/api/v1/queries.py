@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Response, status
 
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
+from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.query.schemas import QueryCreate, QueryRead
 from ....modules.retrieval.config import RetrievalConfig
@@ -78,8 +79,16 @@ async def list_queries(
 )
 async def get_query(
     query_id: UUID,
+    request: Request,
+    response: Response,
     queries: QueryServiceDep,
     db: DbSession,
-) -> QueryRead:
-    """Return a previous answer, without calling the model again."""
-    return await queries.get(query_id, db)
+) -> QueryRead | Response:
+    """Return a previous answer, without calling the model again.
+
+    A stored answer is immutable, so its `ETag` never changes.
+    """
+    query = await queries.get(query_id, db)
+
+    not_modified = apply_read_conditions(request, response, query)
+    return not_modified or query

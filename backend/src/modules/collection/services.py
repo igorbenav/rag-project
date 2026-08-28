@@ -12,7 +12,7 @@ from ..chunk.models import Chunk
 from ..document.models import Document
 from .crud import collection_crud
 from .models import Collection
-from .schemas import CollectionCreate, CollectionRead
+from .schemas import CollectionCreate, CollectionRead, CollectionUpdate
 
 
 def _with_counts() -> Select[Any]:
@@ -95,6 +95,27 @@ class CollectionService:
 
         result = await db.execute(_with_counts().order_by(Collection.created_at.desc()).limit(limit).offset(offset))
         return [_to_read(row) for row in result.all()], total
+
+    async def update(self, collection_id: UUID, data: CollectionUpdate, db: AsyncSession) -> CollectionRead:
+        """Apply a partial update.
+
+        Raises:
+            ResourceNotFoundError: if no collection has that id.
+        """
+        collection = await db.get(Collection, collection_id)
+        if collection is None:
+            raise ResourceNotFoundError(f"No collection with id {collection_id}")
+
+        changes = data.model_dump(exclude_unset=True)
+        if "name" in changes:
+            collection.name = changes["name"]
+        if "description" in changes:
+            collection.description = changes["description"]
+        if "metadata" in changes:
+            collection.extra_metadata = changes["metadata"]
+
+        await db.commit()
+        return await self.get(collection_id, db)
 
     async def delete(self, collection_id: UUID, db: AsyncSession) -> None:
         """Delete a collection and, by cascade, its documents and chunks.

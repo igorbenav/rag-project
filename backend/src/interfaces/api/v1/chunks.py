@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Response, status
 
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
+from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.chunk.schemas import ChunkRead
 from ..dependencies import ChunkServiceDep, DbSession, DocumentServiceDep
@@ -49,11 +50,17 @@ async def list_document_chunks(
 )
 async def get_chunk(
     chunk_id: UUID,
+    request: Request,
+    response: Response,
     chunks: ChunkServiceDep,
     db: DbSession,
-) -> ChunkRead:
+) -> ChunkRead | Response:
     """Return one chunk with its source page.
 
     Every citation in an answer carries a chunk id; this is where it resolves.
+    A chunk never changes once written, so its `ETag` is stable for its life.
     """
-    return await chunks.get(chunk_id, db)
+    chunk = await chunks.get(chunk_id, db)
+
+    not_modified = apply_read_conditions(request, response, chunk)
+    return not_modified or chunk

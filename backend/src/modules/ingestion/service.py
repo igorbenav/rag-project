@@ -83,6 +83,27 @@ def validate_uploads(files: Sequence[tuple[str, str, bytes]]) -> List[Upload]:
     return [validate_upload(name, content_type, data) for name, content_type, data in files]
 
 
+async def already_ingested(collection_id: UUID, checksums: Sequence[str], db: AsyncSession) -> set[str]:
+    """Checksums the collection already holds as a ready document.
+
+    An idempotency key protects against a retried request; this protects
+    against the same file being uploaded twice, which is a different event with
+    the same cost — the chunks appear twice and both copies compete in the
+    index.
+    """
+    if not checksums:
+        return set()
+
+    rows = await db.execute(
+        select(Document.checksum).where(
+            Document.collection_id == collection_id,
+            Document.checksum.in_(list(checksums)),
+            Document.status == DocumentStatus.READY,
+        )
+    )
+    return set(rows.scalars())
+
+
 async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSession) -> tuple[IngestionJob, List[UUID]]:
     """Record the job, its documents, and the bytes each one still needs.
 
@@ -95,8 +116,14 @@ async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSe
 
     await db.flush()
 
+    seen = await already_ingested(collection_id, [upload.checksum for upload in uploads], db)
+
     document_ids: List[UUID] = []
     for upload in uploads:
+        if upload.checksum in seen:
+            logger.info("Skipping %s: already ingested in this collection", upload.filename)
+            continue
+
         document = Document(
             collection_id=collection_id,
             filename=upload.filename,
@@ -109,6 +136,7 @@ async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSe
         db.add(UploadBlob(document_id=document.id, data=upload.data))
         document_ids.append(document.id)
 
+    job.total_documents = len(document_ids)
     await db.commit()
     return job, document_ids
 

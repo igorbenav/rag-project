@@ -6,6 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, File, Request, Response, UploadFile, status
 
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
+from ....infrastructure.http.conditional import apply_read_conditions
+from ....infrastructure.http.idempotency import idempotency_key, idempotency_store
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.document.schemas import DocumentRead
 from ....modules.ingestion.schemas import IngestionJobRead
@@ -34,6 +36,7 @@ _PROBLEM: dict[int | str, dict[str, Any]] = {
 )
 async def ingest_documents(
     collection_id: UUID,
+    request: Request,
     response: Response,
     collections: CollectionServiceDep,
     db: DbSession,
@@ -49,12 +52,25 @@ async def ingest_documents(
 
     uploads = validate_uploads([(f.filename or "upload.pdf", f.content_type or "", await f.read()) for f in files])
 
+    key = idempotency_key(request)
+    fingerprint = ",".join(sorted(upload.checksum for upload in uploads))
+    if key:
+        replayed: IngestionJobRead | None = idempotency_store.get(key, fingerprint)
+        if replayed is not None:
+            response.headers["Location"] = f"/api/v1/ingestions/{replayed.id}"
+            return replayed
+
     job, document_ids = await create_job(collection_id, uploads, db)
     for document_id in document_ids:
         await ingest_document_task.kiq(str(document_id), str(job.id))
 
     response.headers["Location"] = f"/api/v1/ingestions/{job.id}"
-    return IngestionJobRead.model_validate(job)
+    read = IngestionJobRead.model_validate(job)
+
+    if key:
+        idempotency_store.put(key, fingerprint, read)
+
+    return read
 
 
 @router.get(
@@ -86,11 +102,16 @@ async def list_documents(
 )
 async def get_document(
     document_id: UUID,
+    request: Request,
+    response: Response,
     documents: DocumentServiceDep,
     db: DbSession,
-) -> DocumentRead:
+) -> DocumentRead | Response:
     """Return one document, including its ingestion status and chunk count."""
-    return await documents.get(document_id, db)
+    document = await documents.get(document_id, db)
+
+    not_modified = apply_read_conditions(request, response, document)
+    return not_modified or document
 
 
 @router.delete(

@@ -18,3 +18,12 @@ DEFAULT_PAGE_LIMIT = 50
 # Ceiling on limit. Caps the work one request can ask the database for; a
 # client wanting everything pages through it.
 MAX_PAGE_LIMIT = 200
+
+
+# Header a client sends to make a retry safe.
+IDEMPOTENCY_HEADER = "Idempotency-Key"
+
+# How long a keyed result is replayable. Long enough to cover a client
+# retrying through a network failure, short enough that a key reused days
+# later is treated as new work rather than replayed.
+IDEMPOTENCY_TTL_SECONDS = 86400
