@@ -14,6 +14,7 @@ from .database.session import create_tables
 from .http import register_exception_handlers
 from .logging import get_logger
 from .mistral.client import close_client
+from .taskiq import broker
 
 logger = get_logger(__name__)
 
@@ -44,10 +45,15 @@ def lifespan_factory(
             await create_tables()
             logger.info("Database tables ensured")
 
+        if not broker.is_worker_process:
+            await broker.startup()
+
         try:
             yield
         finally:
             await close_client()
+            if not broker.is_worker_process:
+                await broker.shutdown()
 
     return lifespan
 

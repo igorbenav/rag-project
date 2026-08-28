@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import List, Sequence
 from uuid import UUID
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.database.session import local_session
@@ -26,18 +27,10 @@ from .constants import (
     MAX_UPLOAD_BYTES,
     MAX_UPLOAD_FILES,
 )
-from .models import IngestionJob, IngestionStatus
+from .models import IngestionJob, IngestionStatus, UploadBlob
 from .pdf import extract_pdf, looks_like_pdf
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class QueuedDocument:
-    """A document row paired with the bytes waiting to fill it."""
-
-    document_id: UUID
-    upload: "Upload"
 
 
 @dataclass(frozen=True)
@@ -89,21 +82,19 @@ def validate_uploads(files: Sequence[tuple[str, str, bytes]]) -> List[Upload]:
     return [validate_upload(name, content_type, data) for name, content_type, data in files]
 
 
-async def create_job(
-    collection_id: UUID, uploads: Sequence[Upload], db: AsyncSession
-) -> tuple[IngestionJob, List[QueuedDocument]]:
-    """Record the job and its documents so the client has something to poll.
+async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSession) -> tuple[IngestionJob, List[UUID]]:
+    """Record the job, its documents, and the bytes each one still needs.
 
-    Returns the queued pairs directly: identifiers are generated client-side,
-    so they are known before the rows are flushed and the background task needs
-    no lookup to find its work.
+    The bytes are stored rather than passed along: the worker is a separate
+    process, and a file that only exists in a queue message is lost the moment
+    the queue is drained or the worker dies mid-document.
     """
     job = IngestionJob(collection_id=collection_id, total_documents=len(uploads))
     db.add(job)
 
     await db.flush()
 
-    queued: List[QueuedDocument] = []
+    document_ids: List[UUID] = []
     for upload in uploads:
         document = Document(
             collection_id=collection_id,
@@ -113,10 +104,12 @@ async def create_job(
             ingestion_job_id=job.id,
         )
         db.add(document)
-        queued.append(QueuedDocument(document_id=document.id, upload=upload))
+        await db.flush()
+        db.add(UploadBlob(document_id=document.id, data=upload.data))
+        document_ids.append(document.id)
 
     await db.commit()
-    return job, queued
+    return job, document_ids
 
 
 async def _mark_job(job_id: UUID, status: IngestionStatus, error: str | None = None) -> None:
@@ -142,15 +135,19 @@ async def _mark_document(document_id: UUID, status: DocumentStatus, page_count: 
         await db.commit()
 
 
-async def _record_progress(job_id: UUID, *, succeeded: bool) -> None:
+async def _record_progress(document_id: UUID, *, succeeded: bool) -> None:
     async with local_session() as db:
-        job = await db.get(IngestionJob, job_id)
+        document = await db.get(Document, document_id)
+        if document is None or document.ingestion_job_id is None:
+            return
+        job = await db.get(IngestionJob, document.ingestion_job_id)
         if job is None:
             return
         if succeeded:
             job.completed_documents += 1
         else:
             job.failed_documents += 1
+        job.status = IngestionStatus.PROCESSING
         await db.commit()
 
 
@@ -169,12 +166,61 @@ async def _persist_chunks(document_id: UUID, chunks: Sequence[TextChunk], vector
         await db.commit()
 
 
-async def _ingest_one(document_id: UUID, upload: Upload) -> bool:
-    """Extract, chunk, embed and store one document. Returns success."""
+async def _load_upload(document_id: UUID) -> tuple[str, bytes] | None:
+    async with local_session() as db:
+        document = await db.get(Document, document_id)
+        blob = await db.get(UploadBlob, document_id)
+        if document is None or blob is None:
+            return None
+        return document.filename, blob.data
+
+
+async def _discard_upload(document_id: UUID) -> None:
+    """Drop the stored bytes once they are no longer needed."""
+    async with local_session() as db:
+        blob = await db.get(UploadBlob, document_id)
+        if blob is not None:
+            await db.delete(blob)
+            await db.commit()
+
+
+async def _replace_chunks(document_id: UUID, chunks: Sequence[TextChunk], vectors: Sequence[List[float]]) -> None:
+    """Write a document's chunks, clearing any from an earlier attempt.
+
+    A retry re-ingests the same document, so this has to be idempotent.
+    """
+    async with local_session() as db:
+        await db.execute(delete(Chunk).where(Chunk.document_id == document_id))
+        for chunk, vector in zip(chunks, vectors):
+            db.add(
+                Chunk(
+                    document_id=document_id,
+                    content=chunk.text,
+                    page=chunk.page,
+                    ordinal=chunk.ordinal,
+                    embedding=vector,
+                )
+            )
+        await db.commit()
+
+
+async def ingest_document(document_id: UUID) -> bool:
+    """Extract, chunk, embed and store one document. Returns success.
+
+    No session is held across extraction or embedding: the first is CPU work in
+    a worker thread and the second is a network round trip per batch, and a
+    connection held across either can be reaped by the database mid-job.
+    """
+    loaded = await _load_upload(document_id)
+    if loaded is None:
+        logger.warning("No stored upload for document %s; nothing to ingest", document_id)
+        return False
+
+    filename, data = loaded
     await _mark_document(document_id, DocumentStatus.PROCESSING)
 
     try:
-        extracted = await extract_pdf(upload.data)
+        extracted = await extract_pdf(data)
         chunks = chunk_document(extracted)
 
         if not chunks:
@@ -182,27 +228,45 @@ async def _ingest_one(document_id: UUID, upload: Upload) -> bool:
 
         vectors = await get_embedder().embed_texts([chunk.text for chunk in chunks])
 
-        await _persist_chunks(document_id, chunks, vectors)
+        await _replace_chunks(document_id, chunks, vectors)
         await _mark_document(document_id, DocumentStatus.READY, page_count=extracted.page_count)
+        await _discard_upload(document_id)
+        await _record_progress(document_id, succeeded=True)
 
-        logger.info("Ingested %s: %d pages, %d chunks", upload.filename, extracted.page_count, len(chunks))
+        logger.info("Ingested %s: %d pages, %d chunks", filename, extracted.page_count, len(chunks))
         return True
 
     except Exception as exc:
-        logger.exception("Ingestion failed for %s", upload.filename)
+        logger.exception("Ingestion failed for %s", filename)
         await _mark_document(document_id, DocumentStatus.FAILED, error=str(exc))
-        return False
+        await _record_progress(document_id, succeeded=False)
+        raise
 
 
-async def run_job(job_id: UUID, queued: Sequence[QueuedDocument]) -> None:
-    """Process an upload batch. Runs as a background task, owns its sessions."""
-    await _mark_job(job_id, IngestionStatus.PROCESSING)
+async def mark_job_finished(job_id: UUID) -> None:
+    """Close the job once every document has reported a result."""
+    async with local_session() as db:
+        job = await db.get(IngestionJob, job_id)
+        if job is None:
+            return
 
-    succeeded = 0
-    for item in queued:
-        ok = await _ingest_one(item.document_id, item.upload)
-        succeeded += ok
-        await _record_progress(job_id, succeeded=ok)
+        if job.completed_documents + job.failed_documents < job.total_documents:
+            return
 
-    final = IngestionStatus.COMPLETED if succeeded else IngestionStatus.FAILED
-    await _mark_job(job_id, final)
+        job.status = IngestionStatus.COMPLETED if job.completed_documents else IngestionStatus.FAILED
+        await db.commit()
+
+
+async def find_unfinished_documents() -> List[tuple[UUID, UUID]]:
+    """Documents whose bytes are still stored, so ingestion never finished.
+
+    A stored blob is the marker: it is deleted the moment a document succeeds,
+    so anything still holding one was interrupted.
+    """
+    async with local_session() as db:
+        result = await db.execute(
+            select(Document.id, Document.ingestion_job_id)
+            .join(UploadBlob, UploadBlob.document_id == Document.id)
+            .where(Document.status.in_([DocumentStatus.PENDING, DocumentStatus.PROCESSING]))
+        )
+        return [(row[0], row[1]) for row in result.all() if row[1] is not None]

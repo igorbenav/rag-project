@@ -3,13 +3,14 @@
 from typing import Any, List
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, File, Request, Response, UploadFile, status
+from fastapi import APIRouter, File, Request, Response, UploadFile, status
 
 from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, paginate
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.document.schemas import DocumentRead
 from ....modules.ingestion.schemas import IngestionJobRead
-from ....modules.ingestion.service import create_job, run_job, validate_uploads
+from ....modules.ingestion.service import create_job, validate_uploads
+from ....modules.ingestion.tasks import ingest_document_task
 from ..dependencies import CollectionServiceDep, DbSession, DocumentServiceDep
 
 router = APIRouter(tags=["Documents"])
@@ -34,7 +35,6 @@ _PROBLEM: dict[int | str, dict[str, Any]] = {
 async def ingest_documents(
     collection_id: UUID,
     response: Response,
-    background: BackgroundTasks,
     collections: CollectionServiceDep,
     db: DbSession,
     files: List[UploadFile] = File(..., description="One or more PDF files."),
@@ -42,14 +42,16 @@ async def ingest_documents(
     """Accept PDFs and return the job that will process them.
 
     Extraction and embedding take longer than a request should stay open, so
-    the work is queued and `Location` points at the job rather than a result.
+    each file becomes a queued task and `Location` points at the job rather
+    than a result.
     """
     await collections.get(collection_id, db)
 
     uploads = validate_uploads([(f.filename or "upload.pdf", f.content_type or "", await f.read()) for f in files])
 
-    job, queued = await create_job(collection_id, uploads, db)
-    background.add_task(run_job, job.id, queued)
+    job, document_ids = await create_job(collection_id, uploads, db)
+    for document_id in document_ids:
+        await ingest_document_task.kiq(str(document_id), str(job.id))
 
     response.headers["Location"] = f"/api/v1/ingestions/{job.id}"
     return IngestionJobRead.model_validate(job)

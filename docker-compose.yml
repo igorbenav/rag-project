@@ -11,6 +11,26 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/code/src
+      - ./.env:/code/.env
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: taskiq worker src.infrastructure.taskiq.worker:broker --workers 1
+    healthcheck:
+      disable: true
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./src:/code/src
       - ./.env:/code/.env
@@ -29,6 +49,16 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
 volumes:

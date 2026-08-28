@@ -7,7 +7,7 @@ Without this, a table is only registered once something imports its module, so
 from .chunk.models import Chunk
 from .collection.models import Collection
 from .document.models import Document, DocumentStatus
-from .ingestion.models import IngestionJob, IngestionStatus
+from .ingestion.models import IngestionJob, IngestionStatus, UploadBlob
 
 __all__ = [
     "Collection",
@@ -16,4 +16,5 @@ __all__ = [
     "Chunk",
     "IngestionJob",
     "IngestionStatus",
+    "UploadBlob",
 ]

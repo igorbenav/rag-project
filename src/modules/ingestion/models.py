@@ -4,7 +4,7 @@ import enum
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import Enum, ForeignKey, Integer, String
+from sqlalchemy import Enum, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...infrastructure.database.models import TimestampMixin, UUIDMixin
@@ -38,3 +38,18 @@ class IngestionJob(Base, UUIDMixin, TimestampMixin):
     completed_documents: Mapped[int] = mapped_column(Integer, default=0)
     failed_documents: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[Optional[str]] = mapped_column(String(1000), default=None)
+
+
+class UploadBlob(Base, TimestampMixin):
+    """The uploaded bytes, held only until their document finishes ingesting.
+
+    A separate table so that listing documents never drags megabytes of PDF
+    into memory, and deleted on success so the database does not accumulate
+    files it no longer needs. This is what makes a job resumable: a worker
+    that dies mid-document finds the bytes still here when it restarts.
+    """
+
+    __tablename__ = "upload_blobs"
+
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)

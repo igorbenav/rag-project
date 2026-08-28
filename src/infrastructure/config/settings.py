@@ -99,6 +99,21 @@ class MistralSettings(BaseSettings):
     MISTRAL_MAX_RETRY_ELAPSED_MS: int = config("MISTRAL_MAX_RETRY_ELAPSED_MS", default=30000, cast=int)
 
 
+class TaskiqSettings(BaseSettings):
+    TASKIQ_REDIS_URL: str = config("TASKIQ_REDIS_URL", default="redis://redis:6379/0")
+    TASKIQ_QUEUE_NAME: str = config("TASKIQ_QUEUE_NAME", default="ingestion")
+
+    # Retries per task. Ingestion is idempotent per document — a retry rewrites
+    # the same chunks — so retrying a transient Mistral failure is safe.
+    TASKIQ_MAX_RETRIES: int = config("TASKIQ_MAX_RETRIES", default=2, cast=int)
+
+    # Milliseconds an unacknowledged task may sit with a stalled worker before
+    # another reclaims it. Kept low because reclaiming is cheap: ingesting a
+    # document replaces its chunks, so a task run twice costs duplicated work
+    # rather than duplicated data. One minute is ~12x the slowest sample PDF.
+    TASKIQ_IDLE_TIMEOUT_MS: int = config("TASKIQ_IDLE_TIMEOUT_MS", default=60000, cast=int)
+
+
 class LoggingSettings(BaseSettings):
     LOG_LEVEL: str = config("LOG_LEVEL", default="INFO")
     LOG_FORMAT: str = config("LOG_FORMAT", default="structured")
@@ -130,6 +145,7 @@ class Settings(
     APISettings,
     AppSettings,
     MistralSettings,
+    TaskiqSettings,
     LoggingSettings,
 ):
     """Every setting the application reads, in one object."""

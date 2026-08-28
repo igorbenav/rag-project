@@ -14,6 +14,8 @@ dependencies = [
     "fastcrud>=0.22.3",
     "mistralai>=2.9.4",
     "pypdf>=6.16.2",
+    "taskiq-redis>=1.2.3",
+    "taskiq>=0.12.5",
 ]
 
 [project.optional-dependencies]
