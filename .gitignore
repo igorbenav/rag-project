@@ -196,5 +196,11 @@ temp/
 # Celery
 celerybeat-schedule
 
+# Built frontend bundle; produced by `npm run build` or the Docker stage.
+frontend/dist/
+
+# Node
+node_modules/
+
 # Working notes, brief, and anything else not part of the deliverable
 local_stuff/

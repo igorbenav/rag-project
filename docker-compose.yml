@@ -14,10 +14,10 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./src:/code/src
-      - ./eval:/code/eval
+      - ./backend/src:/code/src
+      - ./backend/eval:/code/eval
       - ./samples:/code/samples
-      - ./scripts:/code/scripts
+      - ./backend/scripts:/code/scripts
       - ./.env:/code/.env
 
   worker:
@@ -35,7 +35,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./src:/code/src
+      - ./backend/src:/code/src
       - ./.env:/code/.env
 
   db:

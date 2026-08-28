@@ -21,4 +21,4 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run mypy
-        run: uv run mypy src --config-file pyproject.toml
+        run: uv run mypy backend/src --config-file pyproject.toml
