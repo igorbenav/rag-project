@@ -118,6 +118,11 @@ class RetrievalSettings(BaseSettings):
     # of poor candidates buys little.
     RERANK_CANDIDATES: int = config("RERANK_CANDIDATES", default=20, cast=int)
 
+    # Re-read the generated answer against its own passages and flag any
+    # sentence they do not support. Costs one extra model call per answered
+    # query, which is why it can be turned off.
+    EVIDENCE_CHECK_ENABLED: bool = config("EVIDENCE_CHECK_ENABLED", default=True, cast=bool)
+
     # Calibrated in Phase 7 against the evaluation set. Zero until then, so
     # nothing is silently refused on an unmeasured threshold.
     RETRIEVAL_MIN_SIMILARITY: float = config("RETRIEVAL_MIN_SIMILARITY", default=0.0, cast=float)

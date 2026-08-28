@@ -30,5 +30,7 @@ class Query(Base, UUIDMixin, TimestampMixin):
     disclaimer: Mapped[Optional[str]] = mapped_column(Text, default=None)
 
     citations: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    unsupported_claims: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    evidence_checked: Mapped[bool] = mapped_column(Boolean, default=False)
     trace: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     elapsed_seconds: Mapped[float] = mapped_column(Float, default=0.0)

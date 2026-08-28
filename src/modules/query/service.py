@@ -172,6 +172,8 @@ class QueryService:
             refusal_reason=answer.refusal_reason,
             disclaimer=answer.disclaimer,
             citations=_citation_rows(answer),
+            unsupported_claims=[{"sentence": claim.sentence, "reason": claim.reason} for claim in answer.unsupported_claims],
+            evidence_checked=answer.evidence_checked,
             trace=_trace_row(intent, transformed, retrieval),
             elapsed_seconds=round(time.perf_counter() - started, 3),
         )

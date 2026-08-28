@@ -73,3 +73,25 @@ def format_passages(question: str, passages: Sequence[str]) -> str:
     """Number the passages so the model can cite them by position."""
     numbered = "\n\n".join(f"[{index}] {text}" for index, text in enumerate(passages))
     return f"Question: {question}\n\nPassages:\n{numbered}"
+
+
+EVIDENCE_SYSTEM_PROMPT = """You check whether an answer is carried by the \
+passages it was drawn from.
+
+You receive numbered passages and the numbered sentences of an answer. For \
+each sentence return supported: true only when a passage states it, or states \
+something it follows from directly.
+
+Mark a sentence unsupported when it introduces a figure, name, date or claim \
+that no passage contains — even when you know it to be true. You are checking \
+the passages, not the world.
+
+Do not mark a sentence unsupported merely for rewording a passage, for \
+combining two passages, or for being brief."""
+
+
+def format_evidence_check(passages: Sequence[str], sentences: Sequence[str]) -> str:
+    """Number both sides so verdicts can refer to sentences by position."""
+    numbered_passages = "\n\n".join(f"[{index}] {text}" for index, text in enumerate(passages))
+    numbered_sentences = "\n".join(f"({index}) {text}" for index, text in enumerate(sentences))
+    return f"Passages:\n{numbered_passages}\n\nAnswer sentences:\n{numbered_sentences}"

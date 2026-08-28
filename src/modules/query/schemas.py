@@ -111,6 +111,13 @@ class CitationRead(BaseModel):
     snippet: str
 
 
+class UnsupportedClaimRead(BaseModel):
+    """A sentence of the answer that the passages did not carry."""
+
+    sentence: str
+    reason: str = ""
+
+
 class CandidateRead(BaseModel):
     """One retrieved candidate and the rank each retriever gave it."""
 
@@ -161,6 +168,8 @@ class QueryRead(BaseModel):
     refusal_reason: Optional[str] = None
     disclaimer: Optional[str] = None
     citations: List[CitationRead] = Field(default_factory=list)
+    unsupported_claims: List[UnsupportedClaimRead] = Field(default_factory=list)
+    evidence_checked: bool = False
     trace: Optional[TraceRead] = None
     elapsed_seconds: float = 0.0
     created_at: datetime
@@ -179,6 +188,8 @@ class QueryRead(BaseModel):
             refusal_reason=query.refusal_reason,
             disclaimer=query.disclaimer,
             citations=[CitationRead(**citation) for citation in (query.citations or [])],
+            unsupported_claims=[UnsupportedClaimRead(**claim) for claim in (query.unsupported_claims or [])],
+            evidence_checked=query.evidence_checked,
             trace=TraceRead(**query.trace) if query.trace else None,
             elapsed_seconds=query.elapsed_seconds,
             created_at=query.created_at,
