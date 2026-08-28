@@ -9,9 +9,10 @@ from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, p
 from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.idempotency import idempotency_key, idempotency_store
 from ....infrastructure.http.problem import ProblemDetail
+from ....modules.common.exceptions import UnsupportedMediaTypeError
 from ....modules.document.schemas import DocumentRead
 from ....modules.ingestion.schemas import IngestionJobRead
-from ....modules.ingestion.service import create_job, validate_uploads
+from ....modules.ingestion.service import create_job, partition_uploads
 from ....modules.ingestion.tasks import ingest_document_task
 from ..dependencies import CollectionServiceDep, DbSession, DocumentServiceDep
 
@@ -47,10 +48,17 @@ async def ingest_documents(
     Extraction and embedding take longer than a request should stay open, so
     each file becomes a queued task and `Location` points at the job rather
     than a result.
+
+    A file that cannot be ingested does not sink the request: it is recorded on
+    the job as a failed document with the reason, and the rest proceed. Only a
+    request where nothing is usable is rejected outright.
     """
     await collections.get(collection_id, db)
 
-    uploads = validate_uploads([(f.filename or "upload.pdf", f.content_type or "", await f.read()) for f in files])
+    uploads, rejected = partition_uploads([(f.filename or "upload.pdf", f.content_type or "", await f.read()) for f in files])
+
+    if not uploads:
+        raise UnsupportedMediaTypeError("; ".join(f"{r.filename}: {r.reason}" for r in rejected))
 
     key = idempotency_key(request)
     fingerprint = ",".join(sorted(upload.checksum for upload in uploads))
@@ -60,7 +68,7 @@ async def ingest_documents(
             response.headers["Location"] = f"/api/v1/ingestions/{replayed.id}"
             return replayed
 
-    job, document_ids = await create_job(collection_id, uploads, db)
+    job, document_ids = await create_job(collection_id, uploads, db, rejected)
     for document_id in document_ids:
         await ingest_document_task.kiq(str(document_id), str(job.id))
 

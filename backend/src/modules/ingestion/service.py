@@ -8,7 +8,7 @@ pooled Postgres it also pins a slot that other requests need.
 
 import hashlib
 from dataclasses import dataclass
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -32,6 +32,14 @@ from .models import IngestionJob, IngestionStatus, UploadBlob
 from .pdf import extract_pdf, looks_like_pdf
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class RejectedUpload:
+    """A file that cannot be ingested, and why."""
+
+    filename: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -72,15 +80,37 @@ def validate_upload(filename: str, content_type: str, data: bytes) -> Upload:
     return Upload(filename=filename, data=data)
 
 
-def validate_uploads(files: Sequence[tuple[str, str, bytes]]) -> List[Upload]:
-    """Validate every file in a request, rejecting the whole batch on any failure."""
+def partition_uploads(
+    files: Sequence[tuple[str, str, bytes]],
+) -> Tuple[List[Upload], List[RejectedUpload]]:
+    """Sort a request's files into those that can be ingested and those that cannot.
+
+    Rejecting the whole batch for one bad file is a poor trade: someone who
+    drags in nine reports and a stray spreadsheet should get the nine. The
+    rejects are recorded on the job as failed documents, so nothing is lost
+    silently — the caller sees exactly which files did not make it and why.
+
+    Raises:
+        ValidationError: if the request carries no files, or more than the
+            per-request limit. Both are properties of the request rather than
+            of any one file, so neither can be partially honoured.
+    """
     if not files:
         raise ValidationError("No files were uploaded")
 
     if len(files) > MAX_UPLOAD_FILES:
         raise ValidationError(f"{len(files)} files exceeds the limit of {MAX_UPLOAD_FILES}")
 
-    return [validate_upload(name, content_type, data) for name, content_type, data in files]
+    accepted: List[Upload] = []
+    rejected: List[RejectedUpload] = []
+
+    for name, content_type, data in files:
+        try:
+            accepted.append(validate_upload(name, content_type, data))
+        except (UnsupportedMediaTypeError, ValidationError) as exc:
+            rejected.append(RejectedUpload(filename=name, reason=str(exc)))
+
+    return accepted, rejected
 
 
 async def already_ingested(collection_id: UUID, checksums: Sequence[str], db: AsyncSession) -> set[str]:
@@ -104,7 +134,12 @@ async def already_ingested(collection_id: UUID, checksums: Sequence[str], db: As
     return set(rows.scalars())
 
 
-async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSession) -> tuple[IngestionJob, List[UUID]]:
+async def create_job(
+    collection_id: UUID,
+    uploads: Sequence[Upload],
+    db: AsyncSession,
+    rejected: Sequence[RejectedUpload] = (),
+) -> tuple[IngestionJob, List[UUID]]:
     """Record the job, its documents, and the bytes each one still needs.
 
     The bytes are stored rather than passed along: the worker is a separate
@@ -136,7 +171,23 @@ async def create_job(collection_id: UUID, uploads: Sequence[Upload], db: AsyncSe
         db.add(UploadBlob(document_id=document.id, data=upload.data))
         document_ids.append(document.id)
 
-    job.total_documents = len(document_ids)
+    for rejection in rejected:
+        db.add(
+            Document(
+                collection_id=collection_id,
+                filename=rejection.filename,
+                checksum="",
+                status=DocumentStatus.FAILED,
+                error=rejection.reason,
+                ingestion_job_id=job.id,
+            )
+        )
+
+    job.total_documents = len(document_ids) + len(rejected)
+    job.failed_documents = len(rejected)
+    if not document_ids:
+        job.status = IngestionStatus.FAILED
+
     await db.commit()
     return job, document_ids
 
