@@ -37,14 +37,10 @@ class RetrievalService:
         keyword: List[SearchHit] = []
 
         if config.use_dense:
-            dense = await index_manager.search_vector(
-                collection_id, embedding, config.candidates_per_retriever, db
-            )
+            dense = await index_manager.search_vector(collection_id, embedding, config.candidates_per_retriever, db)
 
         if config.use_keyword:
-            keyword = await index_manager.search_keyword(
-                collection_id, query, config.candidates_per_retriever, db
-            )
+            keyword = await index_manager.search_keyword(collection_id, query, config.candidates_per_retriever, db)
 
         fused = reciprocal_rank_fusion(dense, keyword, config.rrf_k)
         selected = fused[: config.top_k]
