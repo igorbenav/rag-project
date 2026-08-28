@@ -116,7 +116,8 @@ class TaskiqSettings(BaseSettings):
 
 class LoggingSettings(BaseSettings):
     LOG_LEVEL: str = config("LOG_LEVEL", default="INFO")
-    LOG_FORMAT: str = config("LOG_FORMAT", default="structured")
+    # "text" or "json". json is one object per line, for log collectors.
+    LOG_FORMAT: str = config("LOG_FORMAT", default="text")
 
     LOG_CONSOLE_ENABLED: bool = config("LOG_CONSOLE_ENABLED", default=True, cast=bool)
     LOG_FILE_ENABLED: bool = config("LOG_FILE_ENABLED", default=False, cast=bool)
@@ -124,14 +125,7 @@ class LoggingSettings(BaseSettings):
     LOG_FILE_MAX_SIZE: int = config("LOG_FILE_MAX_SIZE", default=10485760, cast=int)
     LOG_FILE_BACKUP_COUNT: int = config("LOG_FILE_BACKUP_COUNT", default=5, cast=int)
 
-    LOG_CORRELATION_ID: bool = config("LOG_CORRELATION_ID", default=True, cast=bool)
-    LOG_STRUCTURED_CONTEXT: bool = config("LOG_STRUCTURED_CONTEXT", default=True, cast=bool)
-    LOG_PERFORMANCE_METRICS: bool = config("LOG_PERFORMANCE_METRICS", default=False, cast=bool)
-    LOG_LOGFIRE_INTEGRATION: bool = config("LOG_LOGFIRE_INTEGRATION", default=False, cast=bool)
     LOG_SQL_QUERIES: bool = config("LOG_SQL_QUERIES", default=False, cast=bool)
-    LOG_INCLUDE_STACKTRACE: bool = config("LOG_INCLUDE_STACKTRACE", default=True, cast=bool)
-    LOG_DEVELOPMENT_VERBOSE: bool = config("LOG_DEVELOPMENT_VERBOSE", default=True, cast=bool)
-    LOG_PRODUCTION_OPTIMIZE: bool = config("LOG_PRODUCTION_OPTIMIZE", default=True, cast=bool)
 
     @property
     def LOG_LEVEL_INT(self) -> int:
