@@ -35,3 +35,23 @@ CHUNK_OVERLAP_CHARS = 200
 # instead of standing alone. Isolated fragments ("References", a stray
 # caption) match queries on their few words and crowd out real content.
 MIN_CHUNK_CHARS = 120
+
+
+# --- Upload limits --------------------------------------------------------
+
+# Content types accepted for ingestion. application/octet-stream is included
+# because curl and several browsers send it for a .pdf; the file signature is
+# what actually decides, so the allowlist is a cheap first filter rather than
+# the security boundary.
+ALLOWED_UPLOAD_TYPES = {
+    "application/pdf",
+    "application/octet-stream",
+}
+
+# Per-file ceiling. Checked against the bytes actually read, never against the
+# Content-Length header, which the client controls.
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+
+# Files per request. Uploads are held in memory until the background task
+# finishes, so this bounds the memory one request can pin.
+MAX_UPLOAD_FILES = 20

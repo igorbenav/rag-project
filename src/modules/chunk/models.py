@@ -1,8 +1,9 @@
 """A chunk: the unit that gets embedded, retrieved, and cited."""
 
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from sqlalchemy import ARRAY, JSON, Float, ForeignKey, Integer, Text, Uuid
+from sqlalchemy import ARRAY, JSON, Float, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...infrastructure.database.models import TimestampMixin, UUIDMixin
@@ -18,7 +19,7 @@ class Chunk(Base, UUIDMixin, TimestampMixin):
 
     __tablename__ = "chunks"
 
-    document_id: Mapped[Uuid] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), index=True)
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), index=True)
     content: Mapped[str] = mapped_column(Text)
     page: Mapped[int] = mapped_column(Integer)
     ordinal: Mapped[int] = mapped_column(Integer)

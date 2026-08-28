@@ -2,8 +2,9 @@
 
 import enum
 from typing import Any, Dict, Optional
+from uuid import UUID
 
-from sqlalchemy import JSON, Enum, ForeignKey, Integer, String, Uuid
+from sqlalchemy import JSON, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...infrastructure.database.models import TimestampMixin, UUIDMixin
@@ -24,13 +25,16 @@ class Document(Base, UUIDMixin, TimestampMixin):
 
     __tablename__ = "documents"
 
-    collection_id: Mapped[Uuid] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
+    collection_id: Mapped[UUID] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
     filename: Mapped[str] = mapped_column(String(512), index=True)
 
     checksum: Mapped[str] = mapped_column(String(64), index=True)
 
+    ingestion_job_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="SET NULL"), index=True, default=None
+    )
+
     status: Mapped[DocumentStatus] = mapped_column(
-        # Without values_callable, SQLAlchemy persists member names, not values.
         Enum(DocumentStatus, name="document_status", values_callable=lambda e: [m.value for m in e]),
         default=DocumentStatus.PENDING,
     )
