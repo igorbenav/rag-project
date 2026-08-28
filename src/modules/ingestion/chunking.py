@@ -135,10 +135,7 @@ def chunk_page(page_text: str, page_number: int, start_ordinal: int = 0) -> List
     """Split one page into chunks."""
     chunk_texts = _fold_trailing_orphan(_accumulate_chunk_texts(page_text))
 
-    return [
-        TextChunk(text=text, page=page_number, ordinal=start_ordinal + offset)
-        for offset, text in enumerate(chunk_texts)
-    ]
+    return [TextChunk(text=text, page=page_number, ordinal=start_ordinal + offset) for offset, text in enumerate(chunk_texts)]
 
 
 def chunk_document(extracted: ExtractedPdf) -> List[TextChunk]:
