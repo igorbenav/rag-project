@@ -99,6 +99,16 @@ class MistralSettings(BaseSettings):
     MISTRAL_MAX_RETRY_ELAPSED_MS: int = config("MISTRAL_MAX_RETRY_ELAPSED_MS", default=30000, cast=int)
 
 
+class RetrievalSettings(BaseSettings):
+    RETRIEVAL_CANDIDATES: int = config("RETRIEVAL_CANDIDATES", default=20, cast=int)
+    RETRIEVAL_TOP_K: int = config("RETRIEVAL_TOP_K", default=5, cast=int)
+    RETRIEVAL_RRF_K: int = config("RETRIEVAL_RRF_K", default=60, cast=int)
+
+    # Calibrated in Phase 7 against the evaluation set. Zero until then, so
+    # nothing is silently refused on an unmeasured threshold.
+    RETRIEVAL_MIN_SIMILARITY: float = config("RETRIEVAL_MIN_SIMILARITY", default=0.0, cast=float)
+
+
 class TaskiqSettings(BaseSettings):
     TASKIQ_REDIS_URL: str = config("TASKIQ_REDIS_URL", default="redis://redis:6379/0")
     TASKIQ_QUEUE_NAME: str = config("TASKIQ_QUEUE_NAME", default="ingestion")
@@ -139,6 +149,7 @@ class Settings(
     APISettings,
     AppSettings,
     MistralSettings,
+    RetrievalSettings,
     TaskiqSettings,
     LoggingSettings,
 ):
