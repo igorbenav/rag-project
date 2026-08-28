@@ -1,5 +1,11 @@
 """Patterns and thresholds for query routing."""
 
+from .schemas import Intent
+
+# The only intent worth searching the documents for. Everything else is
+# answered without touching them.
+RETRIEVING_INTENTS = frozenset({Intent.QUESTION})
+
 # Openers that are unambiguous on their own. Matched against the whole query
 # after normalisation, never as substrings: "hi" must not fire on "high
 # availability", and "thanks" must not swallow "thanks to the residual

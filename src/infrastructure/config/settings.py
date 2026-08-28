@@ -85,7 +85,16 @@ class AppSettings(BaseSettings):
 class MistralSettings(BaseSettings):
     MISTRAL_API_KEY: str = config("MISTRAL_API_KEY", default="")
     MISTRAL_EMBED_MODEL: str = config("MISTRAL_EMBED_MODEL", default="mistral-embed")
+    # Intent, transformation and reranking: short prompts, decisions a small
+    # model makes correctly and cheaply.
     MISTRAL_CHAT_MODEL: str = config("MISTRAL_CHAT_MODEL", default="mistral-small-latest")
+
+    # Generation reads several passages at once and must notice when the one it
+    # wants is absent. Measured on the evaluation questions, mistral-small got
+    # 3/5 — answering "12" from a BERT passage when asked about the Transformer,
+    # and answering a GPT-4 question from a Transformer passage. mistral-medium
+    # got 5/5 at the same latency.
+    MISTRAL_GENERATION_MODEL: str = config("MISTRAL_GENERATION_MODEL", default="mistral-medium-latest")
 
     # mistral-embed returns 1024 dimensions. Every index is built to this, so
     # changing it invalidates stored embeddings.

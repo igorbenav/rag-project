@@ -17,10 +17,6 @@ class Intent(str, enum.Enum):
     ABOUT_THE_SYSTEM = "about_the_system"
 
 
-#: Only a question is worth searching the documents for.
-RETRIEVING_INTENTS = frozenset({Intent.QUESTION})
-
-
 class IntentClassification(BaseModel):
     """Schema the model fills in when the heuristics cannot decide."""
 

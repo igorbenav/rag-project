@@ -15,28 +15,13 @@ import re
 
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_chat
-from .constants import ABOUT_THE_SYSTEM, FAREWELLS, GRATITUDE, GREETINGS
-from .schemas import RETRIEVING_INTENTS, Intent, IntentClassification, IntentDecision
+from .constants import ABOUT_THE_SYSTEM, FAREWELLS, GRATITUDE, GREETINGS, RETRIEVING_INTENTS
+from .prompts import CLASSIFIER_PROMPT
+from .schemas import Intent, IntentClassification, IntentDecision
 
 logger = get_logger(__name__)
 
 _PUNCTUATION = re.compile(r"[^\w\s]")
-
-CLASSIFIER_PROMPT = """You route messages in a question-answering system that \
-searches a library of uploaded documents.
-
-Decide what the user is doing:
-- question: asking something that the documents might answer
-- greeting: an opener with no request in it
-- gratitude: thanking or acknowledging
-- chitchat: small talk, jokes, or remarks with no request
-- about_the_system: asking what you are or what you can do, rather than \
-asking about the documents
-
-A message is a question even when it is terse, badly punctuated, or about a \
-topic the documents may not cover. Judge the intent, not whether an answer \
-exists."""
-
 
 def _normalise(query: str) -> str:
     return _PUNCTUATION.sub("", query.strip().lower()).strip()

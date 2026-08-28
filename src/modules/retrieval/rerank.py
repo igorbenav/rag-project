@@ -15,41 +15,15 @@ from typing import List, Sequence
 
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_chat
+from .constants import RERANK_PASSAGE_CHARS
+from .prompts import RERANK_PROMPT
 from .schemas import RankedChunk, RerankOrder
 
 logger = get_logger(__name__)
 
-# Enough to judge relevance without spending the prompt on one long candidate.
-SNIPPET_CHARS = 1200
-
-RERANK_PROMPT = """You order search results by how well each one answers a \
-question.
-
-You receive a numbered list of passages. Return `ordered_indices`: every index \
-you were given, most useful first.
-
-Rules:
-- Return every index exactly once. Do not drop indices you judge irrelevant — \
-put them last.
-- A passage that states the answer outranks one that merely discusses the \
-topic.
-- A passage naming the specific figure, term or entity asked about outranks a \
-general description of it.
-- Judge only the text given. Do not use outside knowledge, and do not answer \
-the question.
-
-Example. Question: "What optimizer was used?"
-  [0] We trained the model on eight GPUs for twelve hours.
-  [1] We used the Adam optimizer with beta1 = 0.9.
-  [2] Optimization of neural networks is an active research area.
-Correct: ordered_indices = [1, 0, 2]
-  [1] states the answer; [0] is from the same training section; [2] mentions \
-optimization but says nothing about this model."""
-
-
 def _format_candidates(question: str, candidates: Sequence[RankedChunk]) -> str:
     passages = "\n".join(
-        f"[{position}] {candidate.chunk.content[:SNIPPET_CHARS]}" for position, candidate in enumerate(candidates)
+        f"[{position}] {candidate.chunk.content[:RERANK_PASSAGE_CHARS]}" for position, candidate in enumerate(candidates)
     )
     return f"Question: {question}\n\n{passages}"
 

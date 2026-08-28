@@ -12,28 +12,10 @@ non-fatal; the original query is a perfectly usable query.
 
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_chat
+from .prompts import TRANSFORM_PROMPT
 from .schemas import QueryTransformation, TransformedQuery
 
 logger = get_logger(__name__)
-
-TRANSFORM_PROMPT = """You prepare user questions for a document search system \
-that runs two retrievers: one over embeddings, one over exact keywords.
-
-Return:
-- search_phrase: the question restated as a compact, self-contained phrase. \
-Keep the user's own vocabulary. Drop filler like "can you tell me" and "I was \
-wondering".
-- key_terms: literal strings worth matching exactly — acronyms the user did \
-not spell out, the expansion of acronyms they did, technical terms, proper \
-nouns, model names, numbers. Include both forms when one implies the other, \
-for example "MIPS" and "maximum inner product search".
-- sub_questions: only when the question genuinely asks two or more separable \
-things. A single question with a qualifying clause is one question.
-
-Do not answer the question. Do not invent facts, entities or numbers that the \
-question does not mention. Do not add generic words like "information", \
-"details" or "document" as key terms — they match everything and rank nothing."""
-
 
 def _keyword_query(search_phrase: str, key_terms: list[str]) -> str:
     """Join the phrase with its expansions.
