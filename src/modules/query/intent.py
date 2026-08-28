@@ -28,7 +28,7 @@ def _normalise(query: str) -> str:
     return _PUNCTUATION.sub("", query.strip().lower()).strip()
 
 
-def _from_phrase_list(query: str) -> IntentDecision | None:
+def quick_intent(query: str) -> IntentDecision | None:
     """Match the whole query against known openers, never a substring.
 
     Substring matching would classify "high availability" as a greeting.
@@ -68,7 +68,7 @@ async def detect_intent(query: str) -> IntentDecision:
             reason="Empty query.",
         )
 
-    matched = _from_phrase_list(query)
+    matched = quick_intent(query)
     if matched is not None:
         return matched
 

@@ -2,9 +2,11 @@
 
 import enum
 from dataclasses import dataclass, field
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Intent(str, enum.Enum):
@@ -98,3 +100,87 @@ class PolicyDecision:
     @property
     def blocks_answer(self) -> bool:
         return self.action is PolicyAction.REFUSE
+
+
+class CitationRead(BaseModel):
+    """A passage the answer rests on. `chunk_id` resolves at /api/v1/chunks/{id}."""
+
+    chunk_id: UUID
+    document_id: UUID
+    page: int
+    snippet: str
+
+
+class CandidateRead(BaseModel):
+    """One retrieved candidate and the rank each retriever gave it."""
+
+    chunk_id: UUID
+    document_id: UUID
+    page: int
+    fused_score: float
+    dense_rank: Optional[int] = None
+    keyword_rank: Optional[int] = None
+    rerank_position: Optional[int] = None
+    found_by: List[str] = Field(default_factory=list)
+
+
+class TraceRead(BaseModel):
+    """How the answer was reached, stage by stage."""
+
+    intent: str
+    intent_decided_by: str
+    retrieved: bool
+    dense_query: Optional[str] = None
+    keyword_query: Optional[str] = None
+    key_terms: List[str] = Field(default_factory=list)
+    dense_count: int = 0
+    keyword_count: int = 0
+    fused_count: int = 0
+    reranked: bool = False
+    top_similarity: Optional[float] = None
+    candidates: List[CandidateRead] = Field(default_factory=list)
+
+
+class QueryCreate(BaseModel):
+    """Body of `POST /collections/{collection_id}/queries`."""
+
+    question: str = Field(min_length=1, max_length=2000, description="What to ask the documents.")
+
+
+class QueryRead(BaseModel):
+    """A question, its answer, and the evidence behind it."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    collection_id: UUID
+    question: str
+    answer: str
+    answered: bool
+    intent: str
+    refusal_reason: Optional[str] = None
+    disclaimer: Optional[str] = None
+    citations: List[CitationRead] = Field(default_factory=list)
+    trace: Optional[TraceRead] = None
+    elapsed_seconds: float = 0.0
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_model(cls, query: Any) -> "QueryRead":
+        """Build from the stored row, whose citations and trace are JSON."""
+        return cls(
+            id=query.id,
+            collection_id=query.collection_id,
+            question=query.question,
+            answer=query.answer,
+            answered=query.answered,
+            intent=query.intent,
+            refusal_reason=query.refusal_reason,
+            disclaimer=query.disclaimer,
+            citations=[CitationRead(**citation) for citation in (query.citations or [])],
+            trace=TraceRead(**query.trace) if query.trace else None,
+            elapsed_seconds=query.elapsed_seconds,
+            created_at=query.created_at,
+            updated_at=query.updated_at,
+        )

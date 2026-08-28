@@ -8,6 +8,7 @@ from .chunk.models import Chunk
 from .collection.models import Collection
 from .document.models import Document, DocumentStatus
 from .ingestion.models import IngestionJob, IngestionStatus, UploadBlob
+from .query.models import Query
 
 __all__ = [
     "Collection",
@@ -17,4 +18,5 @@ __all__ = [
     "IngestionJob",
     "IngestionStatus",
     "UploadBlob",
+    "Query",
 ]
