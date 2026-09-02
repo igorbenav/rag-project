@@ -7,15 +7,17 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+# Root-anchored: written bare these match at any depth, and `lib/` then also
+# hides frontend/src/lib from a fresh clone while `git status` stays clean.
 .Python
-build/
+/build/
 develop-eggs/
-dist/
+/dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
