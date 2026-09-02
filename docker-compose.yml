@@ -1,4 +1,24 @@
 services:
+  # The schema is created once, before anything that reads it starts. Leaving
+  # it to the API's own startup raced the worker, whose WORKER_STARTUP sweep
+  # queries `documents` the moment it boots: on a fresh volume the worker lost
+  # that race and died on `relation "documents" does not exist`.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python scripts/create_tables.py
+    restart: "no"
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/code/src
+      - ./backend/scripts:/code/scripts
+      - ./.env:/code/.env
+
   web:
     build:
       context: .
@@ -6,9 +26,14 @@ services:
     command: uvicorn src.interfaces.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - ./.env
+    environment:
+      # `migrate` owns the schema; two creators racing is what this fixes.
+      - CREATE_TABLES_ON_STARTUP=false
     ports:
       - "8000:8000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -30,6 +55,8 @@ services:
     env_file:
       - ./.env
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:

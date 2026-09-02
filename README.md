@@ -23,6 +23,8 @@ docker compose up --build
 
 The React client is built inside a Docker stage and served by FastAPI, so there's no separate frontend step to run. The API is served on `http://localhost:8000`, interactive docs on `/docs`, and the chat UI on `http://localhost:8000/`.
 
+Startup order is explicit: a one-shot `migrate` service creates the schema, and both the API and the worker wait for it to exit successfully. The worker re-enqueues interrupted ingestions the moment it boots, which means it reads `documents` immediately — left to race the API's own startup it lost, and a first `docker compose up` on an empty volume died on `relation "documents" does not exist`.
+
 Every request needs a key. The first start creates one and writes it to the log, because a service you can't call until you've run a provisioning step is a bad first five minutes:
 
 ```bash
@@ -212,7 +214,7 @@ Query latency is model-bound: 2.77 s to generate an answer, 18 ms to re-read a s
 
 Changing the embedding model invalidates the index. Chunks record which model embedded them, so mixing incomparable vectors is at least detectable, but there's no re-embedding migration - that's a background job that doesn't exist yet.
 
-There are no schema migrations either. Tables are created with `create_all`, which creates what is missing and never alters what exists, so any column added after a database has data needs a manual `ALTER TABLE` or a dropped volume. Adding `api_key_id` to collections hit exactly that. Alembic is the answer and it isn't wired up; the cost of skipping it is a footgun that only fires on databases you care about, since a fresh one always looks fine.
+There are no schema migrations either. A one-shot `migrate` service runs `create_all` before anything that reads the schema starts, and `create_all` creates what is missing but never alters what exists, so any column added after a database has data needs a manual `ALTER TABLE` or a dropped volume. Adding `api_key_id` to collections hit exactly that. Alembic is the answer, it isn't wired up, and the `migrate` service is the seam it would slot into; the cost of skipping it is a footgun that only fires on databases you care about, since a fresh one always looks fine.
 
 ---
 

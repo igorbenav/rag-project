@@ -40,6 +40,7 @@ COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY backend/src /code/src
+COPY backend/scripts /code/scripts
 COPY --from=frontend /build/dist /code/static
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
