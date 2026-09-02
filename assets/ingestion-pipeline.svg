@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360">
+  <style>
+    .bg        { fill: #f8f9fa; }
+    .title     { font-family: 'Arial', sans-serif; font-size: 15px; font-weight: bold; fill: #333; }
+    .lane      { font-family: 'Arial', sans-serif; font-size: 10px; font-weight: bold; fill: #999; letter-spacing: 0.6px; }
+    .box       { font-family: 'Arial', sans-serif; font-size: 12px; font-weight: bold; text-anchor: middle; fill: #333; }
+    .sub       { font-family: 'Arial', sans-serif; font-size: 9.5px; text-anchor: middle; fill: #777; }
+    .note      { font-family: 'Arial', sans-serif; font-size: 10px; fill: #666; }
+    .em        { font-family: 'Georgia', serif; font-size: 10px; font-style: italic; fill: #999; }
+    .api       { fill: #e6f4ff; stroke: #1890ff; stroke-width: 1.4; }
+    .worker    { fill: #fff3e8; stroke: #fa8c16; stroke-width: 1.4; }
+    .store     { fill: #fff; stroke: #bbb; stroke-width: 1.4; }
+    .flow      { stroke: #999; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .dash      { stroke: #bbb; stroke-width: 1.2; fill: none; stroke-dasharray: 4,3; marker-end: url(#a); }
+    .lane-rule { stroke: #e2e2e2; stroke-width: 1; }
+  </style>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#999"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="360" class="bg"/>
+  <text x="28" y="26" class="title">Ingestion returns immediately; the work happens elsewhere</text>
+
+  <!-- ===== API lane ===== -->
+  <text x="28" y="56" class="lane">API PROCESS</text>
+  <line x1="28" y1="64" x2="732" y2="64" class="lane-rule"/>
+
+  <rect x="28"  y="78" width="136" height="46" rx="4" class="api"/>
+  <text x="96"  y="99"  class="box">Upload PDFs</text>
+  <text x="96"  y="113" class="sub">one or more</text>
+
+  <rect x="204" y="78" width="136" height="46" rx="4" class="api"/>
+  <text x="272" y="99"  class="box">Validate</text>
+  <text x="272" y="113" class="sub">magic bytes, size</text>
+
+  <rect x="380" y="78" width="136" height="46" rx="4" class="api"/>
+  <text x="448" y="99"  class="box">Store bytes</text>
+  <text x="448" y="113" class="sub">upload_blobs</text>
+
+  <rect x="556" y="78" width="176" height="46" rx="4" class="api"/>
+  <text x="644" y="99"  class="box">202 Accepted</text>
+  <text x="644" y="113" class="sub">Location: the job resource</text>
+
+  <line x1="164" y1="101" x2="200" y2="101" class="flow"/>
+  <line x1="340" y1="101" x2="376" y2="101" class="flow"/>
+  <line x1="516" y1="101" x2="552" y2="101" class="flow"/>
+
+  <!-- ===== Worker lane ===== -->
+  <text x="28" y="146" class="lane">WORKER PROCESS</text>
+  <text x="150" y="146" class="em">resumable across a crash</text>
+  <line x1="28" y1="154" x2="612" y2="154" class="lane-rule"/>
+
+  <rect x="28"  y="198" width="136" height="46" rx="4" class="worker"/>
+  <text x="96"  y="219" class="box">Taskiq task</text>
+  <text x="96"  y="233" class="sub">one per document</text>
+
+  <rect x="204" y="198" width="136" height="46" rx="4" class="worker"/>
+  <text x="272" y="219" class="box">Extract</text>
+  <text x="272" y="233" class="sub">pypdf, per page</text>
+
+  <rect x="380" y="198" width="136" height="46" rx="4" class="worker"/>
+  <text x="448" y="219" class="box">Chunk</text>
+  <text x="448" y="233" class="sub">page-anchored</text>
+
+  <rect x="556" y="198" width="176" height="46" rx="4" class="worker"/>
+  <text x="644" y="219" class="box">Embed</text>
+  <text x="644" y="233" class="sub">mistral-embed, batched</text>
+
+  <line x1="164" y1="221" x2="200" y2="221" class="flow"/>
+  <line x1="340" y1="221" x2="376" y2="221" class="flow"/>
+  <line x1="516" y1="221" x2="552" y2="221" class="flow"/>
+
+  <!-- queue handoff -->
+  <path d="M644 128 L644 176 L96 176 L96 194" class="dash"/>
+  <text x="360" y="170" class="note" text-anchor="middle">queued through Redis — identifiers only, never bytes</text>
+
+  <!-- ===== Storage ===== -->
+  <rect x="28" y="286" width="704" height="52" rx="4" class="store"/>
+  <text x="380" y="308" class="box">Postgres — the source of truth</text>
+  <text x="380" y="324" class="sub">bytes stay in upload_blobs until the document succeeds, which is what makes a half-finished job resumable</text>
+
+  <path d="M644 246 L644 282" class="flow"/>
+</svg>

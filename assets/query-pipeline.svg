@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560">
+  <style>
+    .bg      { fill: #f8f9fa; }
+    .title   { font-family: 'Arial', sans-serif; font-size: 15px; font-weight: bold; fill: #333; }
+    .lane    { font-family: 'Arial', sans-serif; font-size: 10px; font-weight: bold; fill: #999; letter-spacing: 0.6px; }
+    .box     { font-family: 'Arial', sans-serif; font-size: 12px; font-weight: bold; text-anchor: middle; fill: #333; }
+    .sub     { font-family: 'Arial', sans-serif; font-size: 9.5px; text-anchor: middle; fill: #777; }
+    .exit    { font-family: 'Arial', sans-serif; font-size: 10px; fill: #666; }
+    .em      { font-family: 'Georgia', serif; font-size: 10px; font-style: italic; fill: #999; }
+    .stage   { fill: #fff; stroke: #bbb; stroke-width: 1.4; }
+    .dense   { fill: #e6f4ff; stroke: #1890ff; stroke-width: 1.4; }
+    .lexical { fill: #fff3e8; stroke: #fa8c16; stroke-width: 1.4; }
+    .final   { fill: #f4f4f5; stroke: #888; stroke-width: 1.6; }
+    .off     { fill: #fafafa; stroke: #d4d4d4; stroke-width: 1.2; stroke-dasharray: 4,3; }
+    .flow    { stroke: #999; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .leave   { stroke: #c4c4c4; stroke-width: 1.2; fill: none; stroke-dasharray: 4,3; marker-end: url(#b); }
+    .rule    { stroke: #e2e2e2; stroke-width: 1; }
+  </style>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#999"/>
+    </marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c4c4c4"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="560" class="bg"/>
+  <text x="28" y="26" class="title">A question runs the whole pipeline; anything else leaves early</text>
+  <text x="28" y="48" class="lane">SYNCHRONOUS — BOUNDED WORK, SECONDS NOT MINUTES</text>
+  <line x1="28" y1="56" x2="732" y2="56" class="rule"/>
+
+  <rect x="234" y="72" width="200" height="40" rx="4" class="stage"/>
+  <text x="334" y="97" class="box">User question</text>
+
+  <rect x="234" y="134" width="200" height="46" rx="4" class="stage"/>
+  <text x="334" y="155" class="box">Intent + policy</text>
+  <text x="334" y="169" class="sub">phrase match first, 0 ms</text>
+
+  <rect x="234" y="202" width="200" height="46" rx="4" class="stage"/>
+  <text x="334" y="223" class="box">Transformation</text>
+  <text x="334" y="237" class="sub">fluent form + literal form</text>
+
+  <rect x="120" y="278" width="180" height="46" rx="4" class="dense"/>
+  <text x="210" y="299" class="box">Dense search</text>
+  <text x="210" y="313" class="sub">numpy matmul</text>
+
+  <rect x="368" y="278" width="180" height="46" rx="4" class="lexical"/>
+  <text x="458" y="299" class="box">BM25</text>
+  <text x="458" y="313" class="sub">Lucene IDF, digits kept</text>
+
+  <rect x="234" y="352" width="200" height="46" rx="4" class="stage"/>
+  <text x="334" y="373" class="box">Rank fusion</text>
+  <text x="334" y="387" class="sub">ranks only, scores discarded</text>
+
+  <rect x="234" y="420" width="200" height="46" rx="4" class="stage"/>
+  <text x="334" y="441" class="box">Rerank</text>
+  <text x="334" y="455" class="sub">returns positions, not text</text>
+
+  <rect x="234" y="488" width="200" height="46" rx="4" class="final"/>
+  <text x="334" y="509" class="box">Generate + verify</text>
+  <text x="334" y="523" class="sub">citations required, claims checked</text>
+
+  <line x1="334" y1="112" x2="334" y2="130" class="flow"/>
+  <line x1="334" y1="180" x2="334" y2="198" class="flow"/>
+  <path d="M290 248 L290 262 L210 262 L210 274" class="flow"/>
+  <path d="M378 248 L378 262 L458 262 L458 274" class="flow"/>
+  <path d="M210 324 L210 338 L290 338 L290 348" class="flow"/>
+  <path d="M458 324 L458 338 L378 338 L378 348" class="flow"/>
+  <line x1="334" y1="398" x2="334" y2="416" class="flow"/>
+  <line x1="334" y1="466" x2="334" y2="484" class="flow"/>
+
+  <!-- early exits, all on the right -->
+  <rect x="556" y="134" width="176" height="46" rx="4" class="off"/>
+  <text x="644" y="152" class="exit" text-anchor="middle">Greeting → canned reply</text>
+  <text x="644" y="168" class="exit" text-anchor="middle">PII → refused</text>
+  <line x1="434" y1="157" x2="552" y2="157" class="leave"/>
+
+  <rect x="556" y="420" width="176" height="46" rx="4" class="off"/>
+  <text x="644" y="438" class="exit" text-anchor="middle">Below threshold, or</text>
+  <text x="644" y="454" class="exit" text-anchor="middle">nothing cited → refused</text>
+  <line x1="434" y1="443" x2="552" y2="443" class="leave"/>
+
+  <text x="556" y="196" class="em">no model call at all</text>
+  <text x="556" y="482" class="em">no answer without evidence</text>
+</svg>
