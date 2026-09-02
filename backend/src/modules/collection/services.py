@@ -12,6 +12,7 @@ from ..chunk.models import Chunk
 from ..document.models import Document
 from .crud import collection_crud
 from .models import Collection
+from .ownership import OwnerId, owned_by
 from .schemas import CollectionCreate, CollectionRead, CollectionUpdate
 
 
@@ -57,11 +58,12 @@ def _to_read(row: Any) -> CollectionRead:
 class CollectionService:
     """Create, read, and delete collections."""
 
-    async def create(self, data: CollectionCreate, db: AsyncSession) -> CollectionRead:
+    async def create(self, data: CollectionCreate, owner: OwnerId, db: AsyncSession) -> CollectionRead:
         collection = Collection(
             name=data.name,
             description=data.description,
             extra_metadata=data.metadata or {},
+            api_key_id=owner,
         )
         db.add(collection)
         await db.commit()
@@ -77,34 +79,37 @@ class CollectionService:
             links=collection_links(collection.id),
         )
 
-    async def get(self, collection_id: UUID, db: AsyncSession) -> CollectionRead:
+    async def get(self, collection_id: UUID, owner: OwnerId, db: AsyncSession) -> CollectionRead:
         """Fetch one collection.
 
         Raises:
-            ResourceNotFoundError: if no collection has that id.
+            ResourceNotFoundError: if no collection has that id, or it belongs
+                to another key. Not found rather than forbidden, so the API
+                never confirms that someone else's id exists.
         """
-        result = await db.execute(_with_counts().where(Collection.id == collection_id))
+        result = await db.execute(owned_by(_with_counts().where(Collection.id == collection_id), owner))
         row = result.first()
         if row is None:
             raise ResourceNotFoundError(f"No collection with id {collection_id}")
         return _to_read(row)
 
-    async def list(self, db: AsyncSession, limit: int, offset: int) -> tuple[Sequence[CollectionRead], int]:
-        """Return one page of collections and the unpaginated total."""
-        total = await db.scalar(select(func.count()).select_from(Collection)) or 0
+    async def list(self, owner: OwnerId, db: AsyncSession, limit: int, offset: int) -> tuple[Sequence[CollectionRead], int]:
+        """Return one page of the caller's collections and the unpaginated total."""
+        total = await db.scalar(owned_by(select(func.count()).select_from(Collection), owner)) or 0
 
-        result = await db.execute(_with_counts().order_by(Collection.created_at.desc()).limit(limit).offset(offset))
+        result = await db.execute(
+            owned_by(_with_counts(), owner).order_by(Collection.created_at.desc()).limit(limit).offset(offset)
+        )
         return [_to_read(row) for row in result.all()], total
 
-    async def update(self, collection_id: UUID, data: CollectionUpdate, db: AsyncSession) -> CollectionRead:
+    async def update(self, collection_id: UUID, data: CollectionUpdate, owner: OwnerId, db: AsyncSession) -> CollectionRead:
         """Apply a partial update.
 
         Raises:
-            ResourceNotFoundError: if no collection has that id.
+            ResourceNotFoundError: if no collection has that id, or it belongs
+                to another key.
         """
-        collection = await db.get(Collection, collection_id)
-        if collection is None:
-            raise ResourceNotFoundError(f"No collection with id {collection_id}")
+        collection = await self._owned(collection_id, owner, db)
 
         changes = data.model_dump(exclude_unset=True)
         if "name" in changes:
@@ -115,15 +120,23 @@ class CollectionService:
             collection.extra_metadata = changes["metadata"]
 
         await db.commit()
-        return await self.get(collection_id, db)
+        return await self.get(collection_id, owner, db)
 
-    async def delete(self, collection_id: UUID, db: AsyncSession) -> None:
+    async def delete(self, collection_id: UUID, owner: OwnerId, db: AsyncSession) -> None:
         """Delete a collection and, by cascade, its documents and chunks.
 
         Raises:
-            ResourceNotFoundError: if no collection has that id.
+            ResourceNotFoundError: if no collection has that id, or it belongs
+                to another key.
         """
-        if not await collection_crud.exists(db=db, id=collection_id):
-            raise ResourceNotFoundError(f"No collection with id {collection_id}")
+        await self._owned(collection_id, owner, db)
         await collection_crud.db_delete(db=db, id=collection_id)
         await db.commit()
+
+    async def _owned(self, collection_id: UUID, owner: OwnerId, db: AsyncSession) -> Collection:
+        """The collection, provided this key owns it."""
+        result = await db.execute(owned_by(select(Collection).where(Collection.id == collection_id), owner))
+        collection: Collection | None = result.scalar_one_or_none()
+        if collection is None:
+            raise ResourceNotFoundError(f"No collection with id {collection_id}")
+        return collection

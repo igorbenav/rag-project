@@ -15,7 +15,7 @@ from ....modules.document.schemas import DocumentRead
 from ....modules.ingestion.schemas import IngestionJobRead
 from ....modules.ingestion.service import create_job, partition_uploads
 from ....modules.ingestion.tasks import ingest_document_task
-from ..dependencies import CollectionServiceDep, DbSession, DocumentServiceDep
+from ..dependencies import CollectionServiceDep, DbSession, DocumentServiceDep, OwnerDep
 
 router = APIRouter(tags=["Documents"])
 
@@ -41,6 +41,7 @@ async def ingest_documents(
     request: Request,
     response: Response,
     collections: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
     files: List[UploadFile] = File(..., description="One or more PDF files."),
 ) -> IngestionJobRead:
@@ -54,7 +55,7 @@ async def ingest_documents(
     the job as a failed document with the reason, and the rest proceed. Only a
     request where nothing is usable is rejected outright.
     """
-    await collections.get(collection_id, db)
+    await collections.get(collection_id, owner, db)
 
     uploads, rejected = partition_uploads([(f.filename or "upload.pdf", f.content_type or "", await f.read()) for f in files])
 
@@ -97,11 +98,12 @@ async def list_documents(
     page: PaginationDep,
     collections: CollectionServiceDep,
     documents: DocumentServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> Page[DocumentRead]:
     """Return one page of the collection's documents, newest first."""
-    await collections.get(collection_id, db)
-    items, total = await documents.list(collection_id, db, limit=page.limit, offset=page.offset)
+    await collections.get(collection_id, owner, db)
+    items, total = await documents.list(collection_id, owner, db, limit=page.limit, offset=page.offset)
     return paginate(request, response, items, total, page)
 
 
@@ -116,10 +118,11 @@ async def get_document(
     request: Request,
     response: Response,
     documents: DocumentServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> DocumentRead | Response:
     """Return one document, including its ingestion status and chunk count."""
-    document = await documents.get(document_id, db)
+    document = await documents.get(document_id, owner, db)
 
     not_modified = apply_read_conditions(request, response, document)
     return not_modified or document
@@ -134,7 +137,8 @@ async def get_document(
 async def delete_document(
     document_id: UUID,
     documents: DocumentServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> None:
     """Delete a document and the chunks derived from it."""
-    await documents.delete(document_id, db)
+    await documents.delete(document_id, owner, db)

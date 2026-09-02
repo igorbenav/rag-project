@@ -9,7 +9,7 @@ from ....infrastructure.http import PROBLEM_CONTENT_TYPE
 from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.ingestion.schemas import IngestionJobRead
-from ..dependencies import DbSession, IngestionServiceDep
+from ..dependencies import DbSession, IngestionServiceDep, OwnerDep
 
 router = APIRouter(prefix="/ingestions", tags=["Ingestion"])
 
@@ -29,6 +29,7 @@ async def get_ingestion(
     request: Request,
     response: Response,
     ingestions: IngestionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> IngestionJobRead | Response:
     """Return the job's progress and the documents it produced.
@@ -36,7 +37,7 @@ async def get_ingestion(
     Clients poll this while a document processes, and most polls find nothing
     changed. `If-None-Match` turns those into a 304 with no body.
     """
-    job = await ingestions.get(ingestion_id, db)
+    job = await ingestions.get(ingestion_id, owner, db)
 
     not_modified = apply_read_conditions(request, response, job)
     return not_modified or job

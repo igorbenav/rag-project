@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.logging import get_logger
 from ...infrastructure.mistral import get_embedder
+from ..collection.models import Collection
+from ..collection.ownership import OwnerId, owned_by
 from ..common.exceptions import ResourceNotFoundError
 from ..document.models import Document
 from ..generation.schemas import Answer
@@ -183,25 +185,37 @@ class QueryService:
         await db.commit()
         return query
 
-    async def get(self, query_id: UUID, db: AsyncSession) -> QueryRead:
+    async def get(self, query_id: UUID, owner: OwnerId, db: AsyncSession) -> QueryRead:
         """Fetch a stored answer without recomputing it.
 
         Raises:
-            ResourceNotFoundError: if no query has that id.
+            ResourceNotFoundError: if no query has that id, or its collection
+                belongs to another key.
         """
-        query = await db.get(Query, query_id)
+        result = await db.execute(
+            owned_by(select(Query).join(Collection, Query.collection_id == Collection.id).where(Query.id == query_id), owner)
+        )
+        query = result.scalar_one_or_none()
         if query is None:
             raise ResourceNotFoundError(f"No query with id {query_id}")
         return QueryRead.from_model(query)
 
     async def list_for_collection(
-        self, collection_id: UUID, db: AsyncSession, limit: int, offset: int
+        self, collection_id: UUID, owner: OwnerId, db: AsyncSession, limit: int, offset: int
     ) -> Tuple[Sequence[QueryRead], int]:
         """Return one page of a collection's query history, newest first."""
-        total = await db.scalar(select(func.count()).select_from(Query).where(Query.collection_id == collection_id))
+        total = await db.scalar(
+            owned_by(
+                select(func.count())
+                .select_from(Query)
+                .join(Collection, Query.collection_id == Collection.id)
+                .where(Query.collection_id == collection_id),
+                owner,
+            )
+        )
         rows = (
             await db.execute(
-                select(Query)
+                owned_by(select(Query).join(Collection, Query.collection_id == Collection.id), owner)
                 .where(Query.collection_id == collection_id)
                 .order_by(Query.created_at.desc())
                 .limit(limit)

@@ -9,7 +9,7 @@ from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, p
 from ....infrastructure.http.conditional import apply_read_conditions
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.chunk.schemas import ChunkRead
-from ..dependencies import ChunkServiceDep, DbSession, DocumentServiceDep
+from ..dependencies import ChunkServiceDep, DbSession, DocumentServiceDep, OwnerDep
 
 router = APIRouter(tags=["Chunks"])
 
@@ -31,14 +31,15 @@ async def list_document_chunks(
     page: PaginationDep,
     documents: DocumentServiceDep,
     chunks: ChunkServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> Page[ChunkRead]:
     """Return one page of chunks in document order.
 
     Useful for seeing how a document was split, which is otherwise invisible.
     """
-    await documents.get(document_id, db)
-    items, total = await chunks.list_for_document(document_id, db, limit=page.limit, offset=page.offset)
+    await documents.get(document_id, owner, db)
+    items, total = await chunks.list_for_document(document_id, owner, db, limit=page.limit, offset=page.offset)
     return paginate(request, response, items, total, page)
 
 
@@ -53,6 +54,7 @@ async def get_chunk(
     request: Request,
     response: Response,
     chunks: ChunkServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> ChunkRead | Response:
     """Return one chunk with its source page.
@@ -60,7 +62,7 @@ async def get_chunk(
     Every citation in an answer carries a chunk id; this is where it resolves.
     A chunk never changes once written, so its `ETag` is stable for its life.
     """
-    chunk = await chunks.get(chunk_id, db)
+    chunk = await chunks.get(chunk_id, owner, db)
 
     not_modified = apply_read_conditions(request, response, chunk)
     return not_modified or chunk

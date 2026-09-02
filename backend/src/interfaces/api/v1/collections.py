@@ -9,7 +9,7 @@ from ....infrastructure.http import PROBLEM_CONTENT_TYPE, Page, PaginationDep, p
 from ....infrastructure.http.conditional import apply_read_conditions, etag_for, require_if_match
 from ....infrastructure.http.problem import ProblemDetail
 from ....modules.collection.schemas import CollectionCreate, CollectionRead, CollectionUpdate
-from ..dependencies import CollectionServiceDep, DbSession
+from ..dependencies import CollectionServiceDep, DbSession, OwnerDep
 
 router = APIRouter(prefix="/collections", tags=["Collections"])
 
@@ -32,10 +32,11 @@ async def create_collection(
     body: CollectionCreate,
     response: Response,
     service: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> CollectionRead:
     """Create a collection and return it, with its URL in `Location`."""
-    collection = await service.create(body, db)
+    collection = await service.create(body, owner, db)
     response.headers["Location"] = f"/api/v1/collections/{collection.id}"
     return collection
 
@@ -50,10 +51,11 @@ async def list_collections(
     response: Response,
     page: PaginationDep,
     service: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> Page[CollectionRead]:
     """Return one page of collections, newest first."""
-    items, total = await service.list(db, limit=page.limit, offset=page.offset)
+    items, total = await service.list(owner, db, limit=page.limit, offset=page.offset)
     return paginate(request, response, items, total, page)
 
 
@@ -68,6 +70,7 @@ async def get_collection(
     request: Request,
     response: Response,
     service: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> CollectionRead | Response:
     """Return one collection, with its document and chunk totals.
@@ -75,7 +78,7 @@ async def get_collection(
     Carries an `ETag`. A client that sends it back as `If-None-Match` gets
     `304` and no body.
     """
-    collection = await service.get(collection_id, db)
+    collection = await service.get(collection_id, owner, db)
 
     not_modified = apply_read_conditions(request, response, collection)
     return not_modified or collection
@@ -93,6 +96,7 @@ async def update_collection(
     request: Request,
     response: Response,
     service: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> CollectionRead:
     """Apply a partial update.
@@ -101,10 +105,10 @@ async def update_collection(
     with `412` if the collection changed in between, rather than overwriting
     whatever it changed to.
     """
-    current = await service.get(collection_id, db)
+    current = await service.get(collection_id, owner, db)
     require_if_match(request, current)
 
-    updated = await service.update(collection_id, body, db)
+    updated = await service.update(collection_id, body, owner, db)
     response.headers["ETag"] = etag_for(updated)
     return updated
 
@@ -119,6 +123,7 @@ async def delete_collection(
     collection_id: UUID,
     request: Request,
     service: CollectionServiceDep,
+    owner: OwnerDep,
     db: DbSession,
 ) -> None:
     """Delete a collection along with its documents and chunks.
@@ -126,7 +131,7 @@ async def delete_collection(
     Honours `If-Match`, so a client can refuse to delete something that
     changed since it last looked.
     """
-    current = await service.get(collection_id, db)
+    current = await service.get(collection_id, owner, db)
     require_if_match(request, current)
 
-    await service.delete(collection_id, db)
+    await service.delete(collection_id, owner, db)
